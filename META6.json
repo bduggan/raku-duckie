@@ -1,6 +1,6 @@
 {
     "name" : "Duckie",
-    "source-url" : "git://github.com/bduggan/raku-duckie.git",
+    "source-url" : "https://github.com/bduggan/raku-duckie.git",
     "raku" : "6.*",
     "build-depends" : [ ],
     "provides" : {

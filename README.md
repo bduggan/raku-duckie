@@ -21,19 +21,19 @@ SYNOPSIS
       say "Failed to run query: $_";
     }
 
-    # DuckDB can query or import data from CSV files, JSON files, HTTP or AWS S3 URLs, PostgreSQL database,
-    # MySQL database, SQLite database, Parquet files and more.
+    # DuckDB can query or import data from CSV or JSON files, HTTP URLs,
+    # PostgreSQL, MySQL, SQLite databases and more.
+    my @cols = $db.query('select * from data.csv').columns;
+    my @rows = $db.query('select * from data.json').rows;
 
-    # Postgres
     $db.query: q[ attach 'postgres://secret:pw@localhost/dbname' as pg (type postgres)]
     $res = $db.query: "select * from pg.my_table"
 
-    # HTTP
     $db.query("install httpfs");
     $db.query("load httpfs");
     $res = $db.query: "select * from 'http://example.com/data.csv'";
 
-    # It can even join between them
+    # Joins between different types are also possible.
     $res = $db.query: q:to/SQL/
     select *
     from pg.my_table one
