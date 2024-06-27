@@ -37,8 +37,8 @@ SQL
 This module provides Raku bindings for L<DuckDB|https://duckdb.org/>.  DuckDB is
 a "fast in-process analytical database".  It provides an SQL interface for a variety
 of data sources.  Result sets are column-oriented, with a rich set of types
-that are either inferred or preserved from the data source.  The high-level
-interface also provides a familiar row-oriented API.
+that are either inferred, preserved, or explicitly defined.  C<Duckie> also
+provides a row-oriented API.
 
 This module provides two sets of classes.
 
@@ -48,8 +48,8 @@ a number of the function calls there are either deprecated or scheduled
 for deprecation, so the implementation of the Raku interface favors the
 more recent mechanisms where possible.
 
-=item C<Duckie> provides a very high level interface that handles things like
-memory management and native type-casting.  While the Raku language
+=item C<Duckie> provides a high level interface that handles things like
+memory management and native typecasting.  While the Raku language
 supports native types, the results from C<Duckie> do not currently expose them,
 preferring, for instance to return Integers instead of uint8s, int64s, etc, and
 using Rats for decimals, and Nums for floats.  A future interface may expose
