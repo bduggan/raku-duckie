@@ -1,0 +1,33 @@
+{
+    "name" : "Duckie",
+    "source-url" : "git://github.com/bduggan/raku-duckie.git",
+    "raku" : "6.*",
+    "build-depends" : [ ],
+    "provides" : {
+        "Duckie::Result" : "lib/Duckie/Result.rakumod",
+        "Duckie" : "lib/Duckie.rakumod",
+        "Duckie::DuckDB::Native" : "lib/Duckie/DuckDB/Native.rakumod",
+        "Duckie::DuckDB::Native::Database" : "lib/Duckie/DuckDB/Native.rakumod",
+        "Duckie::DuckDB::Native::Connection" : "lib/Duckie/DuckDB/Native.rakumod",
+        "Duckie::DuckDB::Native::Result" : "lib/Duckie/DuckDB/Native.rakumod",
+        "Duckie::DuckDB::Native::DataChunk" : "lib/Duckie/DuckDB/Native.rakumod",
+        "Duckie::DuckDB::Native::LogicalType" : "lib/Duckie/DuckDB/Native.rakumod",
+        "Duckie::DuckDB::Native::HugeInt" : "lib/Duckie/DuckDB/Native.rakumod",
+        "Duckie::DuckDB::Native::UHugeInt" : "lib/Duckie/DuckDB/Native.rakumod",
+        "Duckie::DuckDB::Native::Decimal" : "lib/Duckie/DuckDB/Native.rakumod",
+        "Duckie::DuckDB::Native::DuckDate" : "lib/Duckie/DuckDB/Native.rakumod",
+        "Duckie::DuckDB::Native::DuckTime" : "lib/Duckie/DuckDB/Native.rakumod",
+        "Duckie::DuckDB::Native::DuckTimestamp" : "lib/Duckie/DuckDB/Native.rakumod"
+    },
+    "tags" : [
+            "database", "duckdb"
+        ],
+    "depends" : [ "Log::Async" ],
+    "description" : "Raku bindings and wrapper for DuckDB",
+    "test-depends" : [ ],
+    "version" : "0.0.1",
+    "license" : "MIT",
+    "authors" : [
+        "Brian Duggan"
+    ]
+}

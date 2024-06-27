@@ -1,0 +1,82 @@
+#!/usr/bin/env raku
+
+use Duckie;
+use Test;
+use Log::Async;
+
+logger.add-tap: { diag .<level>.lc ~ ': ' ~ .<msg> }
+
+my $db = Duckie.new;
+my $all-res = $db.query("select * from test_all_types()");
+is $all-res.row-count, 3, '3 rows in test';
+is $all-res.column-count, 53, '53 types in test';
+my @cols = $all-res.column-names;
+ok @cols == 53, '53 names';
+my $test-all = True;
+if $test-all {
+  for 0..^53 -> $c {
+    my $data = $all-res.column-data($c);
+  }
+}
+
+with $db.query('select true as a_true_val, false as a_false_val') {
+  ok .column-data(0)[0] ~~ Bool, 'got a boolean';
+  ok .column-data(0)[0], 'true';
+  ok .column-data(1)[0] ~~ Bool, 'got a boolean';
+  ok !.column-data(1)[0], 'false';
+}
+
+with $db.query('select 123.456 as a_decimal_val').column-data(0)[0] {
+  ok $_ ~~ Rat, 'got a decimal';
+  ok $_ == 123.456, '123.456';
+}
+
+is-deeply $all-res.column-data('dec_4_1'), [-999.9, 999.9, Nil], 'dec_4_1';
+is-deeply $all-res.column-data('dec38_10'), [
+  -9999999999999999999999999999.9999999999,
+  9999999999999999999999999999.9999999999,
+  Nil
+], 'dec38_10';
+
+is-deeply $all-res.column-data('hugeint'), [
+  -170141183460469231731687303715884105728,
+  170141183460469231731687303715884105727,
+  Nil
+], 'hugeint';
+
+my $dates = $all-res.column-data('date');
+is $dates[0], '-5877641-06-25', 'min date'; # fyi 1 BC is year 0, 2 BC is year -1
+is $dates[1], '+5881580-07-10', 'max date';
+ok !defined($dates[2]), 'nil date';
+
+is-deeply $all-res.column-data('uhugeint'), [ 0, 340282366920938463463374607431768211455, Nil ], 'uhugeint';
+
+my $timestamp = $all-res.column-data('timestamp');
+is $timestamp[0], '-290308-12-22T00:00:00Z', 'min timestamp';
+is $timestamp[1], '+294247-01-10T04:00:54.775806Z', 'max timestamp';
+ok !defined($timestamp[2]), 'nil timestamp';
+ok $timestamp[0] ~~ DateTime, 'min timestamp is a DateTime';
+
+my $timestamp_s = $all-res.column-data('timestamp_s');
+is $timestamp_s[0], '-290308-12-22T00:00:00Z', 'min timestamp';
+is $timestamp_s[1], '+294247-01-10T04:00:54Z', 'max timestamp';
+ok !defined($timestamp_s[2]), 'nil timestamp';
+ok $timestamp_s[0] ~~ DateTime, 'min timestamp is a DateTime';
+
+my $timestamp_ms = $all-res.column-data('timestamp_ms');
+is $timestamp_ms[0], '-290308-12-22T00:00:00Z', 'min timestamp';
+is $timestamp_ms[1], '+294247-01-10T04:00:54.775000Z', 'max timestamp';
+ok !defined($timestamp_ms[2]), 'nil timestamp';
+ok $timestamp_ms[0] ~~ DateTime, 'min timestamp is a DateTime';
+
+my $timestamp_ns = $all-res.column-data('timestamp_ns');
+is $timestamp_ns[0], '1677-09-21T00:12:43.145225Z', 'min timestamp_ns';
+is $timestamp_ns[1], '2262-04-11T23:47:16.854775Z', 'max timestamp_ns';
+ok !defined($timestamp_ns[2]), 'nil timestamp_ns';
+
+my $time = $all-res.column-data('time');
+is $time[0].hh-mm-ss, '00:00:00', 'min time';
+is $time[1] - $time[0], 24 * 60 * 60, 'max time';
+ok !defined($time[2]), 'nil time';
+
+done-testing;

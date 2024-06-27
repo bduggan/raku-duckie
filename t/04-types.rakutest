@@ -1,0 +1,29 @@
+use Test;
+use Duckie::DuckDB::Native;
+use NativeCall;
+
+my $db-file will leave { .unlink if .IO.e } = $*TMPDIR.child('test.db');
+my DuckDB::Native::Database $dbh .= new;
+my DuckDB::Native::Connection $conn .= new;
+my DuckDB::Native::Result $res .= new;
+
+is duckdb_open($db-file.Str, $dbh), +DUCKDB_SUCCESS, 'open';
+is duckdb_connect($dbh, $conn) , +DUCKDB_SUCCESS, 'connect';
+
+is duckdb_query($conn, 'select * from test_all_types()', $res), +DUCKDB_SUCCESS, 'select';
+is $res.column_count, 53, '53 types in test';
+my %types = DuckDBType.enums.invert.Hash;
+for 0..52 {
+  my $type = duckdb_column_type($res, $_);
+  ok $type.defined, "got column type '{ $type.raku }' : " ~ %types{ $type };
+  my $logicaltype = duckdb_column_logical_type($res,$_);
+  ok $logicaltype.defined, "got logical type too";
+  ok do { duckdb_column_data($res, $_); 1 }, "column_data succeeded";
+}
+
+is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+
+is duckdb_disconnect($conn), +DUCKDB_SUCCESS, 'disconnect';
+is duckdb_close($dbh), +DUCKDB_SUCCESS, 'close';
+
+done-testing;

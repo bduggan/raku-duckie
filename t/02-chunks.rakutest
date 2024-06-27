@@ -1,0 +1,20 @@
+use Test;
+use Duckie::DuckDB::Native;
+use NativeCall;
+
+my $db-file will leave { .unlink if .IO.e } = $*TMPDIR.child('test.db');
+my DuckDB::Native::Database $dbh .= new;
+my DuckDB::Native::Connection $conn .= new;
+my DuckDB::Native::Result $res .= new;
+
+is duckdb_open($db-file.Str, $dbh), +DUCKDB_SUCCESS, 'open';
+is duckdb_connect($dbh, $conn) , +DUCKDB_SUCCESS, 'connect';
+
+is duckdb_query($conn, 'select 99 as first, 10.22 as second', $res), +DUCKDB_SUCCESS, 'select';
+diag "checking to see if chunk_count works";
+is duckdb_result_chunk_count($res), 0, 'no chunks, we are forced to use the deprecated interface';
+
+is duckdb_disconnect($conn), +DUCKDB_SUCCESS, 'disconnect';
+is duckdb_close($dbh), +DUCKDB_SUCCESS, 'close';
+
+done-testing;

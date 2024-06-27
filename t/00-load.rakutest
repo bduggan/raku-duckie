@@ -1,0 +1,7 @@
+use Test;
+plan 2;
+
+use-ok 'Duckie::DuckDB::Native';
+use-ok 'Duckie';
+
+

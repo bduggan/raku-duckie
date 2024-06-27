@@ -1,0 +1,46 @@
+#!/usr/bin/env raku
+
+use Test;
+use Duckie::DuckDB::Native;
+use NativeCall;
+
+plan 25;
+
+my DuckDB::Native::Database $dbh .= new;
+my DuckDB::Native::Connection $conn .= new;
+my DuckDB::Native::Result $res .= new;
+
+ok (my $ver = duckdb_library_version), 'got version';
+diag "library version $ver";
+
+is duckdb_open(':memory:', $dbh), +DUCKDB_SUCCESS, 'open';
+is duckdb_connect($dbh, $conn) , +DUCKDB_SUCCESS, 'connect';
+
+is duckdb_query($conn, 'create table abc (a int, b int, c int)', NULL), +DUCKDB_SUCCESS, 'create table';
+is duckdb_query($conn, 'select 42 as answer', $res), +DUCKDB_SUCCESS, 'query table';
+is duckdb_column_count($res), 1, 'duckdb_column_count';
+is duckdb_row_count($res), 1, 'duckdb_row_count';
+is duckdb_value_string($res, 0, 0), "42", "duckdb_value_string: correct value";
+is duckdb_column_name($res, 0), 'answer', 'duckdb_column_name';
+is duckdb_column_type($res,0), +DUCKDB_TYPE_INTEGER, 'type is integer';
+is duckdb_rows_changed($res), 0, '0 rows changed';
+is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+
+is duckdb_query($conn, q[select '🦆🦆🦆🦆🦆' as ducks], $res), +DUCKDB_SUCCESS, 'query non-ascii';
+is duckdb_value_string($res, 0, 0), '🦆🦆🦆🦆🦆', 'non ascii';
+is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+
+is duckdb_query($conn, 'insert into abc (a) values (12, 13)', $res), +DUCKDB_ERROR, 'result error';
+like duckdb_result_error($res), /Error/, 'result_error message';
+is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+
+is duckdb_query($conn, 'insert into abc (a) values (12)', $res), +DUCKDB_SUCCESS, 'insert';
+is duckdb_rows_changed($res), 1, '1 row changed';
+is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+
+is duckdb_query($conn, 'drop table abc', NULL), +DUCKDB_SUCCESS, 'drop table';
+
+is duckdb_query($conn, 'drop table abc', NULL), +DUCKDB_ERROR, 'error for missing table';
+
+is duckdb_disconnect($conn), +DUCKDB_SUCCESS, 'disconnect';
+is duckdb_close($dbh), +DUCKDB_SUCCESS, 'close';

@@ -1,0 +1,43 @@
+#!/usr/bin/env raku
+
+use Duckie;
+use Test;
+use Log::Async;
+
+plan 17;
+
+logger.add-tap: { diag .<level>.lc ~ ': ' ~ .<msg> }
+
+my $db = Duckie.new;
+my $result = $db.query('select 123 as onetwothree');
+is $result.column-data(0)[0], '123', 'got data';
+is $result.column-names[0], 'onetwothree', 'column name';
+is $result.column-data('onetwothree')[0], '123', 'got data from name';
+
+my $file will leave { .IO.unlink if .IO.e } = ~$*TMPDIR.child('ducktest.db');
+my $db2 = Duckie.new(:$file);
+ok $db2.query('create table test (id integer primary key, name text)'), 'create table';
+ok $file.IO.e, 'file created';
+"$file".IO.unlink;
+
+my $csv-dir = $*PROGRAM.parent.child('csv');
+$result = $db.query("select * from '{ $csv-dir.child('imdb.csv') }' limit 10");
+ok $result.rows == 10, 'got 10 rows';
+ok $result.rows == 10, 'got 10 rows still';
+like $result.rows[0].raku, /:i spitfire/, 'text from csv';
+
+my $cars = $db.query("select * from '{ $csv-dir.child('cars.csv') }'");
+is $cars.rows.elems, 4, '4 rows';
+is $cars.rows[0]<Year>, 1997, 'csv data';
+ok $cars.rows[0]<Year> ~~ Numeric, 'numeric csv data';
+ok $cars.rows[0]<Make> ~~ Str, 'string csv data';
+is $cars.rows[2]<Price>, 5000.00, 'csv data';
+
+is $cars.rows(:arrays)[0][0], 1997, 'array data';
+
+is $cars.columns.elems, 5, '5 columns';
+is $cars.columns[0][0], 1997, 'column element';
+is-deeply $cars.columns[0], [ 1997, 1999, 1999, 1996 ], 'column data';
+
+
+done-testing;

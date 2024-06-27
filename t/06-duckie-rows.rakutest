@@ -1,0 +1,13 @@
+#!/usr/bin/env raku
+
+use Duckie;
+use Test;
+use Log::Async;
+plan 2;
+
+logger.add-tap: { diag .<level>.lc ~ ': ' ~ .<msg> }, :level(* >= DEBUG);
+
+my $db = Duckie.new;
+my $res = $db.query("select * from test_all_types()");
+is $res.rows.elems, 3, '3 rows in test';
+is $res.rows[2].values.grep(*.defined).elems, 0, 'all NULLs in third row';
