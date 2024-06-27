@@ -6,7 +6,7 @@ use Log::Async;
 
 plan 17;
 
-logger.add-tap: { diag .<level>.lc ~ ': ' ~ .<msg> }
+logger.add-tap: { diag .<level>.lc ~ ': ' ~ .<msg> }, :level(* >= DEBUG);
 
 my $db = Duckie.new;
 my $result = $db.query('select 123 as onetwothree');

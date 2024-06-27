@@ -4,7 +4,7 @@ use Duckie;
 use Test;
 use Log::Async;
 
-logger.add-tap: { diag .<level>.lc ~ ': ' ~ .<msg> }
+logger.add-tap: { diag .<level>.lc ~ ': ' ~ .<msg> }, :level(* >= DEBUG);
 
 my $db = Duckie.new;
 my $all-res = $db.query("select * from test_all_types()");
