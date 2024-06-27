@@ -194,6 +194,12 @@ enum DuckDBResultType (
 
 my constant NULL is export = Pointer;
 
+=begin pod
+
+=head1 SUBROUTINES
+
+=end pod
+
 #| DUCKDB_API duckdb_string duckdb_value_string(duckdb_result *result, idx_t col, idx_t row);
 sub duckdb_value_string(Result $res, uint64 $col, uint64 $row) returns Str is native(libduckdb) is export { * }
 

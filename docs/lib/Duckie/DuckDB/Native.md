@@ -106,6 +106,9 @@ class DuckDB::Native::DuckTimestamp
 
 `duckdb_timestamp` : Timestamps are stored as microseconds since 1970-01-01
 
+SUBROUTINES
+===========
+
 ### sub duckdb_value_string
 
 ```raku
