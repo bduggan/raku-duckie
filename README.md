@@ -19,11 +19,25 @@ SYNOPSIS
       say "Failed to run query: $_";
     }
 
-    # DuckDB can query lots of types of data sources and even join between them
+    # DuckDB can read CSV, JSON, AWS S3, HTTP, Parquet, PostgreSQL, SQLite, MySQL and others
     $result = $db.query("select * from 'data.csv')");
-    $result = $db.query: q:to/SQL/;
-    attach 'postgres://secret:pw@localhost/dbname' as my_postgres_database (type postgres);
-    select * from my_postgres_database.my_table;
+    $result = $db.query("select * from 'data.json')");
+
+    $db.query: q[attach 'postgres://secret:pw@localhost/dbname' as my_postgres_database (type postgres);];
+    $result = $db.query: "select * from my_postgres_database.my_table";
+
+    $db.query: "install httpfs";
+    $db.query: "load httpfs";
+    $result = $db.query: "select * from 'http://example.com/data.csv'";
+
+    # It can even join between data sources
+    $result = $db.query: q:to/SQL/
+    select *
+      from 'one.csv'
+      join 'two.json' on one.id = two.id
+      join 'http://example.com/three.csv' on one.id = three.id
+      join 's3://bucket/four.csv' on one.id = four.id
+      join my_postgres_database.my_table on one.id = my_table.id
     SQL
 
 DESCRIPTION
