@@ -11,23 +11,38 @@ Duckie - A wrapper and native bindings for DuckDB
 =begin code
 
 use Duckie;
+Duckie.new.query('select name from META6.json').rows[0]
+# {name => Duckie}
+
 my $db = Duckie.new;
+say $db.query("select 1 as the_loneliest_number").column-data(0);
+# [1]
 
-# Basic query
-say $db.query("select 1 as the_loneliest_number").column-data(0); # [1]
-
-# Errors are soft failures
 with $db.query("select 1 as the_loneliest_number") -> $result {
   say $result.column-data('the_loneliest_number'); # [1]
 } else {
+  # Errors are soft failures
   say "Failed to run query: $_";
 }
 
-# DuckDB can query lots of types of data sources and even join between them
-$result = $db.query("select * from 'data.csv')");
-$result = $db.query: q:to/SQL/;
-attach 'postgres://secret:pw@localhost/dbname' as my_postgres_database (type postgres);
-select * from my_postgres_database.my_table;
+# DuckDB can query or import data from CSV files, JSON files, HTTP or AWS S3 URLs, PostgreSQL database,
+# MySQL database, SQLite database, Parquet files and more.
+
+# Postgres
+$db.query: q[ attach 'postgres://secret:pw@localhost/dbname' as pg (type postgres)]
+$res = $db.query: "select * from pg.my_table"
+
+# HTTP
+$db.query("install httpfs");
+$db.query("load httpfs");
+$res = $db.query: "select * from 'http://example.com/data.csv'";
+
+# It can even join between them
+$res = $db.query: q:to/SQL/
+select *
+from pg.my_table one
+inner join 'http://example.com/data.csv' csv_data on one.id = csv_data.id
+inner join 'data.json' json_data on one.id = json_data.id
 SQL
 
 =end code
