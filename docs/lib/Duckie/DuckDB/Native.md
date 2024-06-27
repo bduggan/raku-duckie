@@ -10,8 +10,8 @@ SYNOPSIS
     my DuckDB::Native::Connection $conn .= new;
     my DuckDB::Native::Result $res .= new;
 
-    duckdb_open(':memory:', $dbh), +DUCKDB_SUCCESS, 'open';
-    duckdb_connect($dbh, $conn) , +DUCKDB_SUCCESS, 'connect';
+    duckdb_open(':memory:', $dbh) == DUCKDB_SUCCESS or die "failed to open db";
+    duckdb_connect($dbh, $conn) == DUCKDB_SUCCESS or die "failed to connect";
 
     duckdb_query($conn, 'select 42 as answer', $res);
     say duckdb_value_string($res, 0, 0);
