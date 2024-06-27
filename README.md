@@ -66,6 +66,13 @@ method DESTROY() returns Mu
 
 Close the database connection and free resources.
 
+SEE ALSO
+========
+
+  * [Duckie::Result](https://github.com/bduggan/raku-duckie/blob/main/docs/lib/Duckie/Result.md)
+
+  * [Duckie::DuckDB::Native](https://github.com/bduggan/raku-duckie/blob/main/docs/lib/Duckie/DuckDB/Native.md)
+
 ENVIRONMENT
 ===========
 

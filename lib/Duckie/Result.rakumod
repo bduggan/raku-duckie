@@ -206,7 +206,7 @@ method DESTROY {
 
 =begin pod
 
-=head NOTES
+=head1 NOTES
 
 Unsupported types are currently treated as C<Nil>.  These will emit a warning, if diagnostics
 are enabled.  Set C<DUCKIE_DEBUG> to send warnings to stderr (or use C<Log::Async> and add

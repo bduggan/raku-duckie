@@ -112,6 +112,12 @@ method DESTROY {
 
 =begin pod
 
+=head1 SEE ALSO
+
+=item L<Duckie::Result|https://github.com/bduggan/raku-duckie/blob/main/docs/lib/Duckie/Result.md>
+
+=item L<Duckie::DuckDB::Native|https://github.com/bduggan/raku-duckie/blob/main/docs/lib/Duckie/DuckDB/Native.md>
+
 =head1 ENVIRONMENT
 
 Set C<DUCKIE_DEBUG> to a true value to enable logging to C<STDERR>.

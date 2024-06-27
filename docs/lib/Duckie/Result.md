@@ -89,10 +89,8 @@ method rows(
 
 The dataset as a list of hashes, where the keys are the column names. Set the C<:arrays> flag to True, to return the data as an array of arrays.
 
-head
-====
-
 NOTES
+=====
 
 Unsupported types are currently treated as `Nil`. These will emit a warning, if diagnostics are enabled. Set `DUCKIE_DEBUG` to send warnings to stderr (or use `Log::Async` and add a tap).
 
