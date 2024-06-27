@@ -94,15 +94,15 @@ enum DuckDBType is export (
   DUCKDB_TYPE_TIMESTAMP_TZ => 31,     # duckdb_timestamp
 );
 
-#| C<duckdb_database>:
+#| `duckdb_database` :
 #| A database object. Should be closed with `duckdb_close`.
 class Database is repr('CPointer') is export { }
 
-#| C<duckdb_connection>:
+#| `duckdb_connection` :
 #| A connection to a duckdb database. Must be closed with `duckdb_disconnect`.
 class Connection is repr('CPointer') is export { }
 
-#| C<duckdb_result>:
+#| `duckdb_result` :
 #| A query result consists of a pointer to its internal data.
 #| Must be freed with 'duckdb_destroy_result'.
 class Result is repr('CStruct') is export {
@@ -114,17 +114,17 @@ class Result is repr('CStruct') is export {
   has Pointer $.internal_data = Pointer.new;      # void *internal_data;
 }
 
-#| C<duckdb_data_chunk>:
+#| `duckdb_data_chunk` :
 #| Contains a data chunk from a duckdb_result.
 #| Must be destroyed with `duckdb_destroy_data_chunk`.
 class DataChunk is repr('CPointer') is export { }
 
-#| C<duckdb_logical_type>:
+#| `duckdb_logical_type` :
 #| Holds an internal logical type.
 #| Must be destroyed with `duckdb_destroy_logical_type`.
 class LogicalType is repr('CPointer') is export { }
 
-#| C<duckdb_hugeint>:
+#| `duckdb_hugeint` :
 #| Hugeints are composed of a (lower, upper) component
 #| The value of the hugeint is upper * 2^64 + lower
 class HugeInt is repr('CStruct') is export {
@@ -136,7 +136,7 @@ class HugeInt is repr('CStruct') is export {
   }
 }
 
-#| C<duckdb_uhugeint>:
+#| `duckdb_uhugeint` :
 #| An unsigned hugeint, similar to duckdb_hugeint
 class UHugeInt is repr('CStruct') is export {
   has uint64 $.lower; # uint64_t lower;
@@ -146,7 +146,7 @@ class UHugeInt is repr('CStruct') is export {
   }
 }
 
-#| C<duckdb_decimal>:
+#| `duckdb_decimal` :
 #| Decimals are composed of a width and a scale, and are stored in a hugeint
 class Decimal is repr('CStruct') is export {
   has uint8 $.width; # uint8_t width;
@@ -154,7 +154,7 @@ class Decimal is repr('CStruct') is export {
   has HugeInt $.value; # duckdb_hugeint value;
 }
 
-#| C<duckdb_date>:
+#| `duckdb_date` :
 #| Days are stored as days since 1970-01-01
 class DuckDate is repr('CStruct') is export {
   has int32 $.days; # int32_t days;
@@ -164,7 +164,7 @@ class DuckDate is repr('CStruct') is export {
   }
 }
 
-#| C<duckdb_time>:
+#| `duckdb_time` :
 #| Time is stored as microseconds since 00:00:00
 class DuckTime is repr('CStruct') is export {
   has int64 $.micros; # int64_t micros;
@@ -175,7 +175,7 @@ class DuckTime is repr('CStruct') is export {
   }
 }
 
-#| C<duckdb_timestamp>:
+#| `duckdb_timestamp` :
 #| Timestamps are stored as microseconds since 1970-01-01
 class DuckTimestamp is repr('CStruct') is export {
   has int64 $.micros; # int64_t micros;

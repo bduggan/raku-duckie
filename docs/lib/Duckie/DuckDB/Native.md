@@ -38,32 +38,32 @@ CLASSES
 class DuckDB::Native::Database
 ------------------------------
 
-C<duckdb_database>: A database object. Should be closed with `duckdb_close`.
+`duckdb_database` : A database object. Should be closed with `duckdb_close`.
 
 class DuckDB::Native::Connection
 --------------------------------
 
-C<duckdb_connection>: A connection to a duckdb database. Must be closed with `duckdb_disconnect`.
+`duckdb_connection` : A connection to a duckdb database. Must be closed with `duckdb_disconnect`.
 
 class DuckDB::Native::Result
 ----------------------------
 
-C<duckdb_result>: A query result consists of a pointer to its internal data. Must be freed with 'duckdb_destroy_result'.
+`duckdb_result` : A query result consists of a pointer to its internal data. Must be freed with 'duckdb_destroy_result'.
 
 class DuckDB::Native::DataChunk
 -------------------------------
 
-C<duckdb_data_chunk>: Contains a data chunk from a duckdb_result. Must be destroyed with `duckdb_destroy_data_chunk`.
+`duckdb_data_chunk` : Contains a data chunk from a duckdb_result. Must be destroyed with `duckdb_destroy_data_chunk`.
 
 class DuckDB::Native::LogicalType
 ---------------------------------
 
-C<duckdb_logical_type>: Holds an internal logical type. Must be destroyed with `duckdb_destroy_logical_type`.
+`duckdb_logical_type` : Holds an internal logical type. Must be destroyed with `duckdb_destroy_logical_type`.
 
 class DuckDB::Native::HugeInt
 -----------------------------
 
-C<duckdb_hugeint>: Hugeints are composed of a (lower, upper) component The value of the hugeint is upper * 2^64 + lower
+`duckdb_hugeint` : Hugeints are composed of a (lower, upper) component The value of the hugeint is upper * 2^64 + lower
 
 ### method value
 
@@ -76,22 +76,22 @@ Returns the value of the hugeint
 class DuckDB::Native::UHugeInt
 ------------------------------
 
-C<duckdb_uhugeint>: An unsigned hugeint, similar to duckdb_hugeint
+`duckdb_uhugeint` : An unsigned hugeint, similar to duckdb_hugeint
 
 class DuckDB::Native::Decimal
 -----------------------------
 
-C<duckdb_decimal>: Decimals are composed of a width and a scale, and are stored in a hugeint
+`duckdb_decimal` : Decimals are composed of a width and a scale, and are stored in a hugeint
 
 class DuckDB::Native::DuckDate
 ------------------------------
 
-C<duckdb_date>: Days are stored as days since 1970-01-01
+`duckdb_date` : Days are stored as days since 1970-01-01
 
 class DuckDB::Native::DuckTime
 ------------------------------
 
-C<duckdb_time>: Time is stored as microseconds since 00:00:00
+`duckdb_time` : Time is stored as microseconds since 00:00:00
 
 ### method DateTime
 
@@ -104,7 +104,7 @@ cast to a raku DateTime
 class DuckDB::Native::DuckTimestamp
 -----------------------------------
 
-C<duckdb_timestamp>: Timestamps are stored as microseconds since 1970-01-01
+`duckdb_timestamp` : Timestamps are stored as microseconds since 1970-01-01
 
 ### sub duckdb_value_string
 
