@@ -76,11 +76,12 @@ multi method column-data(Int $c --> List) {
   my $null-mask = nativecast(Pointer[int8], duckdb_nullmask_data($!res, $c));
   my $column-type = duckdb_column_type($!res, $c);
   my %types = DuckDBType.enums.invert.Hash;
+  my $count = duckdb_row_count($!res);
   without $data {
     warning "no data for column $c ({self.column-names[ $c ]}) of type { %types{$column-type} }";
-    return Empty;
+    my @ret = (^$count).map: { Nil }
+    return @ret;
   }
-  my $count = duckdb_row_count($!res);
   my $logical-type = duckdb_column_logical_type($!res, $c);
   my @ret;
   given $column-type {
