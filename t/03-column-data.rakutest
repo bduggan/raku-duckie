@@ -72,19 +72,19 @@ is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
   is duckdb_query($conn, q[select date '1970-01-02' as day_1, date '2024-04-01' as nother_day], $res), +DUCKDB_SUCCESS, 'select date';
   my $col = duckdb_column_data($res, 0);
   my $values = nativecast(Pointer[DuckDate], $col);
-  my $duck-date = $values[0];
+  my $duck-date = $values.deref;
   is $duck-date.Date, '1970-01-02', 'date';
   my $nother = duckdb_column_data($res, 1);
   my $second-col = nativecast(Pointer[DuckDate], $nother);
-  is $second-col[0].Date, '2024-04-01', 'nother date';
+  is $second-col.deref.Date, '2024-04-01', 'nother date';
   #my $date = duckdb_from_date($duck-date); # seg faults
   is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
 }
 
 { # timestamp
   is duckdb_query($conn, q[select timestamp '1970-01-02 00:00:00' as ts_1, timestamp '2024-04-01 12:34:56' as ts_2], $res), +DUCKDB_SUCCESS, 'select timestamp';
-  is nativecast(Pointer[DuckTimestamp], duckdb_column_data($res, 0) )[0].DateTime, '1970-01-02T00:00:00Z', 'timestamp';
-  is nativecast(Pointer[DuckTimestamp], duckdb_column_data($res, 1) )[0].DateTime, '2024-04-01T12:34:56Z', 'nother timestamp';
+  is nativecast(Pointer[DuckTimestamp], duckdb_column_data($res, 0) ).deref.DateTime, '1970-01-02T00:00:00Z', 'timestamp';
+  is nativecast(Pointer[DuckTimestamp], duckdb_column_data($res, 1) ).deref.DateTime, '2024-04-01T12:34:56Z', 'nother timestamp';
 }
 
 is duckdb_disconnect($conn), +DUCKDB_SUCCESS, 'disconnect';
