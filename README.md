@@ -1,4 +1,5 @@
-[![Actions Status](https://github.com/bduggan/raku-duckie/actions/workflows/linux.yml/badge.svg)](https://github.com/bduggan/raku-duckie/actions) [![Actions Status](https://github.com/bduggan/raku-duckie/actions/workflows/macos.yml/badge.svg)](https://github.com/bduggan/raku-duckie/actions)
+[![Actions Status](https://github.com/bduggan/raku-duckie/actions/workflows/linux.yml/badge.svg)](https://github.com/bduggan/raku-duckie/actions/workflows/linux.yml)
+[![Actions Status](https://github.com/bduggan/raku-duckie/actions/workflows/macos.yml/badge.svg)](https://github.com/bduggan/raku-duckie/actions/workflows/macos.yml)
 
 NAME
 ====
