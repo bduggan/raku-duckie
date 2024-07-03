@@ -77,6 +77,10 @@ multi method column-data(Int $c --> List) {
   my $column-type = duckdb_column_type($!res, $c);
   my %types = DuckDBType.enums.invert.Hash;
   my $count = duckdb_row_count($!res);
+  my sub val-at($v,$n) {
+    $v.add($n).deref;
+  }
+
   without $data {
     warning "no data for column $c ({self.column-names[ $c ]}) of type { %types{$column-type} }";
     my @ret = (^$count).map: { Nil }
@@ -95,14 +99,14 @@ multi method column-data(Int $c --> List) {
          | DUCKDB_TYPE_UBIGINT
          {
       my $values = nativecast(Pointer[int64], $data);
-      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! $values[$_].Numeric };
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Numeric };
     }
     when DUCKDB_TYPE_VARCHAR {
       @ret = (^$count).map: { $null-mask[$_] ?? Nil !! duckdb_value_string($!res,$c,$_) }
     }
     when DUCKDB_TYPE_BOOLEAN {
       my $values = nativecast(Pointer[uint8], $data);
-      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! so $values[$_] };
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! so val-at($values,$_) };
     }
     when DUCKDB_TYPE_DECIMAL {
       my $width = duckdb_decimal_width($logical-type);
@@ -115,11 +119,11 @@ multi method column-data(Int $c --> List) {
         }
         when DUCKDB_TYPE_HUGEINT {
           my $values := nativecast(Pointer[HugeInt],$data);
-          @ret = (^$count).map: { $null-mask[$_] ?? Nil !! Rat.new( $values[$_].value, 10**$scale); }
+          @ret = (^$count).map: { $null-mask[$_] ?? Nil !! Rat.new( val-at($values,$_).value, 10**$scale); }
         }
         when DUCKDB_TYPE_UHUGEINT {
           my $values := nativecast(Pointer[UHugeInt],$data);
-          @ret = (^$count).map: { $null-mask[$_] ?? Nil !! Rat.new( $values[$_].value, 10**$scale); }
+          @ret = (^$count).map: { $null-mask[$_] ?? Nil !! Rat.new( val-at($values,$_).value, 10**$scale); }
         }
         default {
           debug "decimal internal type for column $c ({ self.column-names[$c] }) { %types{ $internal-type } }";
@@ -131,37 +135,37 @@ multi method column-data(Int $c --> List) {
     when DUCKDB_TYPE_HUGEINT {
       my $values := nativecast(Pointer[HugeInt],$data);
       @ret = (^$count).map: {
-         $null-mask[$_] ?? Nil !! $values[$_].value
+         $null-mask[$_] ?? Nil !! val-at($values,$_).value
       }
     }
     when DUCKDB_TYPE_UHUGEINT {
       my $values := nativecast(Pointer[UHugeInt],$data);
       @ret = (^$count).map: {
-         $null-mask[$_] ?? Nil !! $values[$_].value
+         $null-mask[$_] ?? Nil !! val-at($values,$_).value
       }
     }
     when DUCKDB_TYPE_DATE {
       my $values := nativecast(Pointer[DuckDate],$data);
-      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! $values[$_].Date }
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Date }
     }
     when DUCKDB_TYPE_TIME {
       my $values := nativecast(Pointer[DuckTime],$data);
-      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! $values[$_].DateTime }
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).DateTime }
     }
     when | DUCKDB_TYPE_TIMESTAMP
          | DUCKDB_TYPE_TIMESTAMP_S
          | DUCKDB_TYPE_TIMESTAMP_MS
          | DUCKDB_TYPE_TIMESTAMP_NS {
       my $values = nativecast(Pointer[DuckTimestamp],$data);
-      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! $values[$_].DateTime }
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).DateTime }
     }
     when DUCKDB_TYPE_FLOAT {
       my $values = nativecast(Pointer[num32],$data);
-      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! $values[$_].Numeric };
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Numeric };
     }
     when DUCKDB_TYPE_DOUBLE {
       my $values = nativecast(Pointer[num64],$data);
-      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! $values[$_].Numeric };
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Numeric };
     }
     when DUCKDB_TYPE_INVALID {
       fail "invalid column $c";
