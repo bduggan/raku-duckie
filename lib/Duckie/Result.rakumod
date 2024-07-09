@@ -72,7 +72,9 @@ multi method column-data(Str $name --> List) {
 
 #| Returns the data for the specified column number
 multi method column-data(Int $c --> List) {
-  my $data = duckdb_column_data($!res, $c);
+  my $data;
+  $data = duckdb_column_data($!res, $c);
+  $data //= duckdb_column_data($!res, $c); # fixes "internal error" below
   my $null-mask = nativecast(Pointer[int8], duckdb_nullmask_data($!res, $c));
   my $column-type = duckdb_column_type($!res, $c);
   my %types = DuckDBType.enums.invert.Hash;
@@ -82,6 +84,7 @@ multi method column-data(Int $c --> List) {
   }
 
   without $data {
+    die "internal error" if defined(duckdb_column_data($!res, $c));
     warning "no data for column $c ({self.column-names[ $c ]}) of type { %types{$column-type} }";
     my @ret = (^$count).map: { Nil }
     return @ret;
