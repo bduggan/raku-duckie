@@ -2,3 +2,6 @@
 *.wal
 *.precomp
 tar
+duckdb.h
+duckdb.hpp
+libduckdb.dylib
