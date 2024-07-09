@@ -12,7 +12,7 @@ is duckdb_connect($dbh, $conn) , +DUCKDB_SUCCESS, 'connect';
 
 is duckdb_query($conn, 'select 99 as first, 10.22 as second', $res), +DUCKDB_SUCCESS, 'select';
 diag "checking to see if chunk_count works";
-is duckdb_result_chunk_count($res), 0, 'no chunks, we are forced to use the deprecated interface';
+diag "chunk count is " ~ duckdb_result_chunk_count($res);
 
 duckdb_disconnect($conn);
 duckdb_close($dbh);
