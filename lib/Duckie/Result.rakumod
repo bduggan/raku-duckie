@@ -203,8 +203,7 @@ method rows(Bool :$arrays = False --> Iterable) {
 method DESTROY {
   with $!res {
     debug "destroying result";
-    duckdb_destroy_result($!res) == +DUCKDB_SUCCESS
-      or error "failed to destroy result\n" ~ Backtrace.new.Str;
+    duckdb_destroy_result($!res);
     $!res = Nil;
   }
 }
