@@ -210,19 +210,19 @@ sub duckdb_value_uint64(Result $res, uint64 $col, uint64 $row) returns uint64 is
 sub duckdb_open(Str $path, Database $dbh is rw) returns int32 is native(libduckdb) is export { * }
 
 #| DUCKDB_API void duckdb_close(duckdb_database *database);
-sub duckdb_close(Database $dbh is rw) returns int32 is native(libduckdb) is export { * }
+sub duckdb_close(Database $dbh is rw) is native(libduckdb) is export { * }
 
 #| DUCKDB_API duckdb_state duckdb_connect(duckdb_database database, duckdb_connection *out_connection);
 sub duckdb_connect(Database $dbh, Connection $conn is rw) returns int32 is native(libduckdb) is export { * }
 
 #| DUCKDB_API void duckdb_disconnect(duckdb_connection *connection);
-sub duckdb_disconnect(Connection $conn is rw) returns int32 is native(libduckdb) is export { * }
+sub duckdb_disconnect(Connection $conn is rw) is native(libduckdb) is export { * }
 
 #| DUCKDB_API duckdb_state duckdb_query(duckdb_connection connection, const char *query, duckdb_result *out_result);
 sub duckdb_query(Connection $conn, Str $query is encoded('utf8'), Result $res is rw) returns int32 is native(libduckdb) is export { * }
 
 #| DUCKDB_API void duckdb_destroy_result(duckdb_result *result);
-sub duckdb_destroy_result(Result $res is rw) returns int32 is native(libduckdb) is export { * }
+sub duckdb_destroy_result(Result $res is rw) is native(libduckdb) is export { * }
 
 #| DUCKDB_API const char *duckdb_library_version();
 sub duckdb_library_version() returns Str is native(libduckdb) is export { * }

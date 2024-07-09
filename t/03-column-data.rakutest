@@ -1,6 +1,7 @@
 use Test;
 use Duckie::DuckDB::Native;
 use NativeCall;
+plan 31;
 
 my $db-file will leave { .unlink if .IO.e } = $*TMPDIR.child('test.db');
 my DuckDB::Native::Database $dbh .= new;
@@ -12,7 +13,7 @@ is duckdb_connect($dbh, $conn) , +DUCKDB_SUCCESS, 'connect';
 
 is duckdb_query($conn, 'select 99 as first, 10.22 as second', $res), +DUCKDB_SUCCESS, 'select';
 is duckdb_column_count($res), 2, 'two columns';
-is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+duckdb_destroy_result($res);
 
 { # integer
   is duckdb_query($conn, 'select 99 as first, 10.22 as second', $res), +DUCKDB_SUCCESS, 'select';
@@ -20,7 +21,7 @@ is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
   my $data = duckdb_column_data($res, 0);
   my $values = nativecast(Pointer[uint64], $data);
   is $values[0], 99, 'first column data';
-  is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+  duckdb_destroy_result($res);
 }
 
 { # decimal
@@ -37,7 +38,7 @@ is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
   my $rat = Rat.new($values[0], 10**$scale);
   is $rat, 10.22, 'Rat';
   is duckdb_decimal_internal_type($type), +DUCKDB_TYPE_SMALLINT, 'internal type';
-  is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+  duckdb_destroy_result($res);
 }
 
 { # float
@@ -47,7 +48,7 @@ is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
   my $values = nativecast(Pointer[num32],$data);
   ok $values[0] ~~ Num, 'num';
   is round($values[0],0.01), 10.22, 'second column data';
-  is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+  duckdb_destroy_result($res);
 }
 
 { # double
@@ -56,7 +57,7 @@ is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
   my $values = nativecast(Pointer[num], duckdb_column_data($res, 0) );
   ok $values[0] ~~ Num, 'num';
   is round($values[0],0.01), 10.22, 'second column data';
-  is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+  duckdb_destroy_result($res);
 }
 
 { # null
@@ -65,7 +66,7 @@ is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
   is $mask[0], 1, 'null mask';
   my $mask2 = nativecast(Pointer[int8], duckdb_nullmask_data($res, 1));
   is $mask2[0], 0, 'null mask';
-  is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+  duckdb_destroy_result($res);
 }
 
 { # date
@@ -78,7 +79,7 @@ is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
   my $second-col = nativecast(Pointer[DuckDate], $nother);
   is $second-col.deref.Date, '2024-04-01', 'nother date';
   #my $date = duckdb_from_date($duck-date); # seg faults
-  is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
+  duckdb_destroy_result($res);
 }
 
 { # timestamp
@@ -87,7 +88,5 @@ is duckdb_destroy_result($res), +DUCKDB_SUCCESS, 'destroy result';
   is nativecast(Pointer[DuckTimestamp], duckdb_column_data($res, 1) ).deref.DateTime, '2024-04-01T12:34:56Z', 'nother timestamp';
 }
 
-is duckdb_disconnect($conn), +DUCKDB_SUCCESS, 'disconnect';
-is duckdb_close($dbh), +DUCKDB_SUCCESS, 'close';
-
-done-testing;
+duckdb_disconnect($conn);
+duckdb_close($dbh);

@@ -9,7 +9,12 @@ my $module =  q:x[jq -r .name META6.json].trim.?subst('::','-',:g) or exit note 
 my $version = q:x[jq -r .version META6.json].trim or exit note 'no version';
 
 multi MAIN('test', Bool :$v) {
-  shell "TEST_AUTHOR=1 DUCKIE_DEBUG=1 prove {$v ?? '-v' !! ''} -e 'raku {$v ?? '--ll-exception' !! ''} -Ilib' t/*.rakutest";
+  my $env = '';
+  if $*DISTRO ~~ /macos/ {
+    $env ~= 'DYLD_LIBRARY_PATH=. ';
+  }
+
+  shell "$env TEST_AUTHOR=1 DUCKIE_DEBUG=1 prove {$v ?? '-v' !! ''} -e 'raku {$v ?? '--ll-exception' !! ''} -Ilib' t/*.rakutest";
 }
 
 multi MAIN('dist') {
