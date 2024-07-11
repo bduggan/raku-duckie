@@ -35,8 +35,10 @@ sub update-changes($version, $next) {
   "/tmp/changes".IO.spurt: $next ~ ' ' ~ now.Date.yyyy-mm-dd ~ "\n\n";
   shell "git log --format=full $version...HEAD >> /tmp/changes"; 
   shell "echo >> /tmp/changes";
-  shell "cat Changes >> /tmp/changes && mv /tmp/changes Changes";
-  shell "nvim Changes";
+  "CHANGES".IO.e and do {
+    shell "cat CHANGES >> /tmp/changes && mv /tmp/changes CHANGES";
+  }
+  shell "nvim CHANGES";
 }
 
 multi MAIN('docs') {
