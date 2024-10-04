@@ -16,6 +16,7 @@ jobs:
           - ubuntu-latest
         duckdb-version:
           - '1.0.0'
+          - '1.1.0'
           - '1.1.1'
         raku-version:
           - '2024.08'
