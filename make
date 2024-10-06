@@ -75,3 +75,9 @@ multi MAIN('clean') {
   shell 'rm -f dist/*.tar.gz';
 }
 
+multi MAIN('release') {
+  "tar/{$module}-{$version}.tar.gz".IO.e or die "no tarfile created for $version, make tar first";
+  shell "git push github";
+  shell "git push --tags github";
+  shell "fez upload --file tar/{$module}-{$version}.tar.gz";
+}
