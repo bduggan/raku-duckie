@@ -1,6 +1,11 @@
+2024-10-06 0.0.3
+  Changes for duckdb 1.1.1
+  - skip test for min timestamp_ns
+  - add new types: DUCKDB_TYPE_ANY, DUCKDB_TYPE_VARINT, and DUCKDB_TYPE_SQLNULL
+
 2024-07-11 0.0.2
-   os/x compatibility
-   fixes for some return types
+  os/x compatibility
+  fixes for some return types
 
 2024-06-27 0.0.1
   Initial release
