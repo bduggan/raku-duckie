@@ -76,6 +76,7 @@ multi MAIN('clean') {
 }
 
 multi MAIN('release') {
+  say "releasing $version";
   "tar/{$module}-{$version}.tar.gz".IO.e or die "no tarfile created for $version, make tar first";
   shell "git push github";
   shell "git push --tags github";
