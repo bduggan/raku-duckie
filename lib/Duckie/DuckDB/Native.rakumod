@@ -92,6 +92,9 @@ enum DuckDBType is export (
   DUCKDB_TYPE_BIT => 29,              # duckdb_bit
   DUCKDB_TYPE_TIME_TZ => 30,          # duckdb_time_tz
   DUCKDB_TYPE_TIMESTAMP_TZ => 31,     # duckdb_timestamp
+  DUCKDB_TYPE_ANY => 34,              # any type
+  DUCKDB_TYPE_VARINT => 35,           # duckdb_varint
+  DUCKDB_TYPE_SQLNULL => 36,          # SQLNULL type
 );
 
 #| `duckdb_database` :

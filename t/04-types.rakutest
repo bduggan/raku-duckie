@@ -11,10 +11,11 @@ is duckdb_open($db-file.Str, $dbh), +DUCKDB_SUCCESS, 'open';
 is duckdb_connect($dbh, $conn) , +DUCKDB_SUCCESS, 'connect';
 
 is duckdb_query($conn, 'select * from test_all_types()', $res), +DUCKDB_SUCCESS, 'select';
-is $res.column_count, 53, '53 types in test';
+ok $res.column_count >= 53, '>= 53 types in test';
 my %types = DuckDBType.enums.invert.Hash;
 for 0..52 {
   my $type = duckdb_column_type($res, $_);
+  ok %types{ $type }:exists, "got column type '{ $type.raku }' : " ~ %types{ $type };
   ok $type.defined, "got column type '{ $type.raku }' : " ~ %types{ $type };
   my $logicaltype = duckdb_column_logical_type($res,$_);
   ok $logicaltype.defined, "got logical type too";
