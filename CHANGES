@@ -1,14 +1,17 @@
-2024-10-06 0.0.4
+0.0.5 2024-10-06
+  Use correct native int types
+
+0.0.4 2024-10-06
   - Add auth to META file
 
-2024-10-06 0.0.3
+0.0.3 2024-10-06
   Changes for duckdb 1.1.1
   - skip test for min timestamp_ns
   - add new types: DUCKDB_TYPE_ANY, DUCKDB_TYPE_VARINT, and DUCKDB_TYPE_SQLNULL
 
-2024-07-11 0.0.2
+0.0.2 2024-07-11
   os/x compatibility
   fixes for some return types
 
-2024-06-27 0.0.1
+0.0.1 2024-06-27
   Initial release
