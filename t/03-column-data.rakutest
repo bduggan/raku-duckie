@@ -19,7 +19,7 @@ duckdb_destroy_result($res);
   is duckdb_query($conn, 'select 99 as first, 10.22 as second', $res), +DUCKDB_SUCCESS, 'select';
   is duckdb_column_type($res, 0), +DUCKDB_TYPE_INTEGER, 'first column type';
   my $data = duckdb_column_data($res, 0);
-  my $values = nativecast(Pointer[uint64], $data);
+  my $values = nativecast(Pointer[int32], $data);
   is $values[0], 99, 'first column data';
   duckdb_destroy_result($res);
 }

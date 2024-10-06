@@ -89,13 +89,31 @@ multi method column-data(Int $c --> List) {
   my $logical-type = duckdb_column_logical_type($!res, $c);
   my @ret;
   given $column-type {
-    when | DUCKDB_TYPE_TINYINT
-         | DUCKDB_TYPE_UTINYINT
-         | DUCKDB_TYPE_SMALLINT
-         | DUCKDB_TYPE_USMALLINT
-         | DUCKDB_TYPE_INTEGER
-         | DUCKDB_TYPE_UINTEGER
-         | DUCKDB_TYPE_BIGINT
+    when DUCKDB_TYPE_TINYINT {
+      my $values = nativecast(Pointer[int8], $data);
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Int };
+    }
+    when DUCKDB_TYPE_UTINYINT {
+      my $values = nativecast(Pointer[uint8], $data);
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Int };
+    }
+    when DUCKDB_TYPE_SMALLINT {
+      my $values = nativecast(Pointer[int16], $data);
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Int };
+    }
+    when DUCKDB_TYPE_USMALLINT {
+      my $values = nativecast(Pointer[uint16], $data);
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Int };
+    }
+    when DUCKDB_TYPE_INTEGER {
+      my $values = nativecast(Pointer[int32], $data);
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Int };
+    }
+    when DUCKDB_TYPE_UINTEGER {
+      my $values = nativecast(Pointer[uint32], $data);
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Int };
+    }
+    when | DUCKDB_TYPE_BIGINT
          | DUCKDB_TYPE_UBIGINT
          {
       my $values = nativecast(Pointer[int64], $data);
