@@ -9,5 +9,6 @@ logger.add-tap: { diag .<level>.lc ~ ': ' ~ .<msg> }, :level(* >= DEBUG);
 
 my $db = Duckie.new;
 my $res = $db.query("select * from test_all_types()");
+my @rows = $res.rows;
 is $res.rows.elems, 3, '3 rows in test';
 is $res.rows[2].values.grep(*.defined).elems, 0, 'all NULLs in third row';
