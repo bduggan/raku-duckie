@@ -189,7 +189,7 @@ multi method column-data(Int $c --> List) {
       fail "invalid column $c";
     }
     default {
-      error "sorry, unsupported column type: $column-type ({%types{$column-type} }) for column $c ({self.column-names[$c]})";
+      die "sorry, unsupported column type: $column-type ({%types{$column-type} }) for column $c ({self.column-names[$c]})";
       @ret = (^$count).map: { Nil }
     }
   }
