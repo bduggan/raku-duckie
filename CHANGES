@@ -1,11 +1,14 @@
+0.0.6 2025-01-05
+  - fail when using an unsupported column type
+
 0.0.5 2024-10-06
-  Use correct native int types
+  - Use correct native int types
 
 0.0.4 2024-10-06
   - Add auth to META file
 
 0.0.3 2024-10-06
-  Changes for duckdb 1.1.1
+  - Changes for duckdb 1.1.1
   - skip test for min timestamp_ns
   - add new types: DUCKDB_TYPE_ANY, DUCKDB_TYPE_VARINT, and DUCKDB_TYPE_SQLNULL
 
