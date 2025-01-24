@@ -1,6 +1,3 @@
-[![Actions Status](https://github.com/bduggan/raku-duckie/actions/workflows/linux.yml/badge.svg)](https://github.com/bduggan/raku-duckie/actions/workflows/linux.yml)
-[![Actions Status](https://github.com/bduggan/raku-duckie/actions/workflows/macos.yml/badge.svg)](https://github.com/bduggan/raku-duckie/actions/workflows/macos.yml)
-
 NAME
 ====
 
@@ -54,6 +51,14 @@ This module provides two sets of classes.
   * `Duckie::DuckDB::Native` is a low-level interface that directly maps to the [C API](https://duckdb.org/docs/api/c/api.html). Note that a number of the function calls there are either deprecated or scheduled for deprecation, so the implementation of the Raku interface favors the more recent mechanisms where possible.
 
   * `Duckie` provides a high level interface that handles things like memory management and native typecasting. While the Raku language supports native types, the results from `Duckie` do not currently expose them, preferring, for instance to return Integers instead of uint8s, int64s, etc, and using Rats for decimals, and Nums for floats. A future interface may expose native types.
+
+EXPORTS
+=======
+
+If an argument to `use Duckie` is provided, a new `Duckie` object is exported with that name. e.g.
+
+    use Duckie 'db';
+    db.query("select 1 as the_loneliest_number").column-data(0);
 
 METHODS
 =======

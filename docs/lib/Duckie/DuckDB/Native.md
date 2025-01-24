@@ -149,7 +149,7 @@ DUCKDB_API duckdb_state duckdb_open(const char *path, duckdb_database *out_datab
 ```raku
 sub duckdb_close(
     DuckDB::Native::Database $dbh is rw
-) returns int32
+) returns Mu
 ```
 
 DUCKDB_API void duckdb_close(duckdb_database *database);
@@ -170,7 +170,7 @@ DUCKDB_API duckdb_state duckdb_connect(duckdb_database database, duckdb_connecti
 ```raku
 sub duckdb_disconnect(
     DuckDB::Native::Connection $conn is rw
-) returns int32
+) returns Mu
 ```
 
 DUCKDB_API void duckdb_disconnect(duckdb_connection *connection);
@@ -192,7 +192,7 @@ DUCKDB_API duckdb_state duckdb_query(duckdb_connection connection, const char *q
 ```raku
 sub duckdb_destroy_result(
     DuckDB::Native::Result $res is rw
-) returns int32
+) returns Mu
 ```
 
 DUCKDB_API void duckdb_destroy_result(duckdb_result *result);

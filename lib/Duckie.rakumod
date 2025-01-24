@@ -1,4 +1,4 @@
-unit class Duckie;
+class Duckie {
 
 =begin pod
 
@@ -69,6 +69,18 @@ supports native types, the results from C<Duckie> do not currently expose them,
 preferring, for instance to return Integers instead of uint8s, int64s, etc, and
 using Rats for decimals, and Nums for floats.  A future interface may expose
 native types.
+
+=head1 EXPORTS
+
+If an argument to C<use Duckie> is provided, a new C<Duckie> object is exported
+with that name.  e.g.
+
+=begin code
+
+use Duckie 'db';
+db.query("select 1 as the_loneliest_number").column-data(0);
+
+=end code
 
 =head1 METHODS
 
@@ -142,4 +154,11 @@ Set C<DUCKIE_DEBUG> to a true value to enable logging to C<STDERR>.
 Brian Duggan
 
 =end pod
+
+}
+
+sub EXPORT($name = Nil) {
+  return %( ) without $name;
+  %( $name => Duckie.new );
+}
 
