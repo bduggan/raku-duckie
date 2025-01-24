@@ -55,7 +55,11 @@ This module provides two sets of classes.
 EXPORTS
 =======
 
-If an argument to `use Duckie` is provided, a new `Duckie` object is exported with that name. e.g.
+If an argument to `use Duckie` is provided, a new `Duckie` object is created and returned. Also "-debug" will enable debug output. e.g.
+
+    use Duckie;                 # no exports
+    use Duckie '$db';           # creates and exports "$db"
+    use Duckie '$db', '-debug'; # creates and exports "$db" with debug output
 
     use Duckie 'db';
     db.query("select 1 as the_loneliest_number").column-data(0);

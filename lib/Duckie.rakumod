@@ -72,8 +72,12 @@ native types.
 
 =head1 EXPORTS
 
-If an argument to C<use Duckie> is provided, a new C<Duckie> object is exported
-with that name.  e.g.
+If an argument to C<use Duckie> is provided, a new C<Duckie> object is
+created and returned.  Also "-debug" will enable debug output.  e.g.
+
+  use Duckie;                 # no exports
+  use Duckie '$db';           # creates and exports "$db"
+  use Duckie '$db', '-debug'; # creates and exports "$db" with debug output
 
 =begin code
 
@@ -110,6 +114,7 @@ if %*ENV<DUCKIE_DEBUG> {
   logger.send-to($*ERR) 
 }
 
+has $.logger = logger;
 has DuckDB::Native::Database $.dbh .= new;
 has DuckDB::Native::Connection $.conn .= new;
 has Str $.file = ':memory:';
@@ -157,8 +162,9 @@ Brian Duggan
 
 }
 
-sub EXPORT($name = Nil) {
+sub EXPORT($name = Nil, *@args) {
   return %( ) without $name;
-  %( $name => Duckie.new );
+  my $obj = Duckie.new;
+  $obj.logger.send-to: $*ERR if @args.first: * eq '-debug';
+  %( $name => $obj );
 }
-

@@ -1,0 +1,9 @@
+use Test;
+plan 3;
+
+use Duckie 'db';
+
+ok db, 'exported';
+ok db.^can('query'), 'walks like a duck';
+ok db.^can('conn'), 'talks like a duck';
+
