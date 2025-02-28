@@ -222,7 +222,7 @@ method rows(Bool :$arrays = False --> Iterable) {
 
 method DESTROY {
   with $!res {
-    debug "destroying result";
+    trace "destroying result";
     duckdb_destroy_result($!res);
     $!res = Nil;
   }
