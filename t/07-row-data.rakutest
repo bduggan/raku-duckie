@@ -1,0 +1,34 @@
+use Test;
+use Duckie;
+
+plan 28;
+
+my $db = Duckie.new;
+
+ok so $db.query("create table t (a int, b text, c float)"), 'table created';
+for 1..10 {
+  my $a = ++$;
+  my $b = "text" ~ $a;
+  my $c = $a * 1.5;
+  ok so $db.query( "insert into t values ($a,'$b',$c)" ), "inserted row $a";
+}
+
+{
+  my $res = $db.query("select * from t");
+  is $res.rows.elems, 10, "10 rows returned";
+  is $res.rows(:arrays).elems, 10, "10 rows returned in array form";
+}
+
+{
+  ok so $db.query("create table u (a int)");
+  for 1..10 {
+    ok so $db.query( "insert into u values ($_)"), "inserted row $_ into u";
+  }
+  my $res = $db.query("select a from u");
+  is $res.rows.elems, 10, "10 rows returned from u";
+  is $res.rows[0]<a>, 1, "first row: a is 1";
+  is $res.rows[1]<a>, 2, "second row: a is 2";
+  is $res.rows(:arrays).elems, 10, "10 rows returned in array form";
+}
+
+

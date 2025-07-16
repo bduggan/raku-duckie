@@ -215,7 +215,17 @@ method columns {
 #| Set the C<:arrays> flag to True, to return the data as an array of arrays.
 method rows(Bool :$arrays = False --> Iterable) {
   self!maybe-read-all;
-  my @rows = [Z] @!all-column-data;
+  my @rows = do {
+    when @!all-column-data == 0 {
+      [];
+    }
+    when @!all-column-data == 1 {
+      @!all-column-data[0].map: { [ $_, ] }
+    }
+    default {
+      [Z] @!all-column-data;
+    }
+  }
   return @rows if $arrays;
   @rows.map: { %( self.column-names Z=> @$_ ) }
 }
