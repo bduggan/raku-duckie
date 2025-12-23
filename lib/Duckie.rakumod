@@ -70,6 +70,15 @@ preferring, for instance to return Integers instead of uint8s, int64s, etc, and
 using Rats for decimals, and Nums for floats.  A future interface may expose
 native types.
 
+=head1 INSTALLATION
+
+Since Duckie depends on the C API, follow the instructions L<here|https://duckdb.org/docs/stable/clients/c/overview>
+for installation of libduckdb before installing this module.  For instance, the "C/C++"
+section of L<this page|https://duckdb.org/install/?environment=c> has a link
+to a .zip file, which will need to be extracted and placed in a location
+that is included in a standard locations, or one included in `DYLD_LIBRARY_PATH` for os/x,
+or a similar `LD_LIBRARY_PATH` location for linux.
+
 =head1 EXPORTS
 
 If an argument to C<use Duckie> is provided, a new C<Duckie> object is
