@@ -35,6 +35,24 @@ method column-names() returns List
 
 Returns the names of the columns in the result set
 
+### method column-types
+
+```raku
+method column-types() returns List
+```
+
+Return the native column types of the columns
+
+### method column-type
+
+```raku
+method column-type(
+    Str $name
+) returns Str
+```
+
+Return the native type by column name
+
 ### method column-count
 
 ```raku
