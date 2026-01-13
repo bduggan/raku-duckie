@@ -24,6 +24,9 @@ with $db.query('select true as a_true_val, false as a_false_val') {
   ok .column-data(0)[0], 'true';
   ok .column-data(1)[0] ~~ Bool, 'got a boolean';
   ok !.column-data(1)[0], 'false';
+  # test types
+  is .column-types[0], 'BOOLEAN', 'boolean type';
+  is .column-types[1], 'BOOLEAN', 'boolean type';
 }
 
 with $db.query('select 123.456 as a_decimal_val').column-data(0)[0] {
@@ -48,6 +51,9 @@ my $dates = $all-res.column-data('date');
 is $dates[0], '-5877641-06-25', 'min date'; # fyi 1 BC is year 0, 2 BC is year -1
 is $dates[1], '+5881580-07-10', 'max date';
 ok !defined($dates[2]), 'nil date';
+my $index = $all-res.column-names.first( :k, * eq 'date' );
+is $all-res.column-types[$index], 'DATE', 'date type';
+is $all-res.column-type('date'), 'DATE', 'date type by name';
 
 is-deeply $all-res.column-data('uhugeint'), [ 0, 340282366920938463463374607431768211455, Nil ], 'uhugeint';
 

@@ -53,6 +53,22 @@ method column-names(--> List) {
   @!column-names := eager (^self.column-count).map: { duckdb_column_name($!res, $_) };
 }
 
+sub enum-to-str($type) {
+  DuckDBType.invert.Hash{ $type }.Str.subst('DUCKDB_TYPE_', '');  # Output: BOOLEAN
+}
+
+#| Return the native column types of the columns
+method column-types(--> List) {
+  eager (^self.column-count).map: { enum-to-str(duckdb_column_type($!res, $_)) };
+}
+
+#| Return the native type by column name
+method column-type(Str $name --> Str) {
+  my $index = self.column-names.first( :k, * eq $name );
+  fail "No such column: $name" unless defined $index;
+  enum-to-str( duckdb_column_type($!res, $index))
+}
+
 #| Returns the number of columns in the result set
 method column-count(--> Int) {
   $!res.column_count;
