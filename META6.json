@@ -25,7 +25,7 @@
     "depends" : [ "Log::Async" ],
     "description" : "Raku bindings and wrapper for DuckDB",
     "test-depends" : [ ],
-    "version" : "0.0.8",
+    "version" : "0.0.9",
     "license" : "MIT",
     "authors" : [
         "Brian Duggan"
