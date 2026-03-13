@@ -1,0 +1,116 @@
+#!/usr/bin/env raku
+
+use Test;
+use Duckie;
+use Duckie::DuckDB::Native;
+
+my $version = duckdb_library_version();  # e.g. "v1.3.2"
+my $has-scalar = do {
+    my $m = $version ~~ / ^ 'v'? (\d+) \. (\d+) /;
+    $m && ($m[0].Int > 1 || ($m[0].Int == 1 && $m[1].Int >= 1));
+};
+
+my $scalar-tests = 9;
+plan 15 + ($has-scalar ?? $scalar-tests !! 0);
+
+my $db = Duckie.new;
+
+# ---------------------------------------------------------------------------
+# 1. No-parameter table function – returns a fixed set of rows
+# ---------------------------------------------------------------------------
+
+$db.register-table-function('greetings',
+    columns  => ['id' => 'INTEGER', 'msg' => 'VARCHAR'],
+    function => sub () {
+        [[1, 'hello'], [2, 'world'], [3, 'raku']]
+    },
+);
+
+my $r = $db.query('SELECT * FROM greetings()');
+ok $r, 'greetings() query succeeded';
+is $r.rows.elems, 3, 'greetings() returns 3 rows';
+is $r.rows[0]<id>,  1,       'row 0 id correct';
+is $r.rows[0]<msg>, 'hello', 'row 0 msg correct';
+is $r.rows[2]<msg>, 'raku',  'row 2 msg correct';
+
+# ---------------------------------------------------------------------------
+# 2. Table function with an INTEGER parameter – squares
+# ---------------------------------------------------------------------------
+
+$db.register-table-function('squares',
+    columns  => ['n' => 'INTEGER', 'sq' => 'BIGINT'],
+    params   => ['INTEGER'],
+    function => sub ($n) {
+        (1..$n.Int).map(-> $i { [$i, $i * $i] })
+    },
+);
+
+$r = $db.query('SELECT * FROM squares(5)');
+ok $r, 'squares(5) query succeeded';
+is $r.rows.elems, 5, 'squares(5) returns 5 rows';
+is $r.rows[0]<n>,  1,  'squares row 0 n=1';
+is $r.rows[0]<sq>, 1,  'squares row 0 sq=1';
+is $r.rows[4]<n>,  5,  'squares row 4 n=5';
+is $r.rows[4]<sq>, 25, 'squares row 4 sq=25';
+
+# ---------------------------------------------------------------------------
+# 3. Table function with a VARCHAR parameter
+# ---------------------------------------------------------------------------
+
+$db.register-table-function('split-csv',
+    columns  => ['part' => 'VARCHAR'],
+    params   => ['VARCHAR'],
+    function => sub ($csv) {
+        $csv.split(',').map({ [$_] })
+    },
+);
+
+$r = $db.query("SELECT part FROM \"split-csv\"('a,b,c,d')");
+ok $r, 'split-csv() query succeeded';
+is $r.rows.elems, 4, 'split-csv returns 4 rows';
+is $r.rows[0]<part>, 'a', 'split-csv row 0 = a';
+is $r.rows[3]<part>, 'd', 'split-csv row 3 = d';
+
+# ---------------------------------------------------------------------------
+# 4–6. Scalar functions (require DuckDB >= v1.1)
+# ---------------------------------------------------------------------------
+
+if $has-scalar {
+    note "Testing scalar functions (DuckDB $version)";
+
+    # VARCHAR → VARCHAR (uppercase)
+    $db.register-scalar-function('raku-upper',
+        params   => ['VARCHAR'],
+        returns  => 'VARCHAR',
+        function => sub ($s) { $s.uc },
+    );
+
+    $r = $db.query("SELECT raku_upper('hello world') AS result");
+    ok $r, 'raku_upper() query succeeded';
+    is $r.rows[0]<result>, 'HELLO WORLD', 'raku_upper uppercases correctly';
+
+    # INTEGER → INTEGER (double)
+    $db.register-scalar-function('raku-double',
+        params   => ['INTEGER'],
+        returns  => 'INTEGER',
+        function => sub ($n) { $n.Int * 2 },
+    );
+
+    $r = $db.query('SELECT raku_double(21) AS result');
+    ok $r, 'raku_double() query succeeded';
+    is $r.rows[0]<result>, 42, 'raku_double(21) = 42';
+
+    # Scalar function applied to a table column
+    $db.query('CREATE TABLE words (w VARCHAR)');
+    $db.query(q[INSERT INTO words VALUES ('foo'), ('bar'), ('baz')]);
+
+    $r = $db.query('SELECT raku_upper(w) AS up FROM words ORDER BY up');
+    ok $r, 'raku_upper on column succeeded';
+    is $r.rows.elems, 3, '3 rows from raku_upper on column';
+    is $r.rows[0]<up>, 'BAR', 'first row BAR';
+    is $r.rows[2]<up>, 'FOO', 'last row FOO';
+} else {
+    note "Skipping scalar function tests (DuckDB $version < v1.1 – no scalar UDF C API)";
+}
+
+done-testing;

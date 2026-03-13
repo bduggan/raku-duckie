@@ -348,3 +348,167 @@ sub duckdb_bind_null(PreparedStatement $stmt, uint64 $idx) returns int32 is nati
 #| DUCKDB_API duckdb_state duckdb_bind_blob(duckdb_prepared_statement prepared_statement, idx_t param_idx, const void *data, idx_t length);
 sub duckdb_bind_blob(PreparedStatement $stmt, uint64 $idx, CArray[uint8] $data, uint64 $length) returns int32 is native(libduckdb) is export { * }
 
+# --- Logical type ---
+
+#| DUCKDB_API duckdb_logical_type duckdb_create_logical_type(duckdb_type type);
+sub duckdb_create_logical_type(uint32 $type) returns LogicalType is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_destroy_logical_type(duckdb_logical_type *type);
+sub duckdb_destroy_logical_type(LogicalType $type is rw) is native(libduckdb) is export { * }
+
+# --- Table functions ---
+
+#| `duckdb_table_function` :
+#| A table function. Must be destroyed with `duckdb_destroy_table_function`.
+class TableFunction is repr('CPointer') is export { }
+
+#| `duckdb_bind_info` :
+#| Information passed to the bind callback of a table function.
+class BindInfo is repr('CPointer') is export { }
+
+#| `duckdb_init_info` :
+#| Information passed to the init callback of a table function.
+class InitInfo is repr('CPointer') is export { }
+
+#| `duckdb_function_info` :
+#| Information passed to the function callback of a table function.
+class FunctionInfo is repr('CPointer') is export { }
+
+#| `duckdb_vector` :
+#| A column vector, used to write output data in table function callbacks.
+class DuckVector is repr('CPointer') is export { }
+
+#| `duckdb_value` :
+#| A scalar value, used to retrieve parameters in table function bind callbacks.
+class DuckValue is repr('CPointer') is export { }
+
+#| DUCKDB_API duckdb_table_function duckdb_create_table_function();
+sub duckdb_create_table_function() returns TableFunction is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_destroy_table_function(duckdb_table_function *table_function);
+sub duckdb_destroy_table_function(TableFunction $tf is rw) is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_table_function_set_name(duckdb_table_function table_function, const char *name);
+sub duckdb_table_function_set_name(TableFunction $tf, Str $name) is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_table_function_add_parameter(duckdb_table_function table_function, duckdb_logical_type type);
+sub duckdb_table_function_add_parameter(TableFunction $tf, LogicalType $type) is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_table_function_set_extra_info(duckdb_table_function table_function, void *extra_info, duckdb_delete_callback_t destroy);
+sub duckdb_table_function_set_extra_info(TableFunction $tf, Pointer $extra, Pointer $destroy) is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_table_function_set_bind(duckdb_table_function table_function, duckdb_table_function_bind_t bind);
+sub duckdb_table_function_set_bind(TableFunction $tf, &callback (BindInfo)) is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_table_function_set_init(duckdb_table_function table_function, duckdb_table_function_init_t init);
+sub duckdb_table_function_set_init(TableFunction $tf, &callback (InitInfo)) is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_table_function_set_function(duckdb_table_function table_function, duckdb_table_function_t function);
+sub duckdb_table_function_set_function(TableFunction $tf, &callback (FunctionInfo, DataChunk)) is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_register_table_function(duckdb_connection con, duckdb_table_function function);
+sub duckdb_register_table_function(Connection $conn, TableFunction $tf) returns int32 is native(libduckdb) is export { * }
+
+# --- Bind info ---
+
+#| DUCKDB_API void *duckdb_bind_get_extra_info(duckdb_bind_info info);
+sub duckdb_bind_get_extra_info(BindInfo $info) returns Pointer is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_bind_add_result_column(duckdb_bind_info info, const char *name, duckdb_logical_type type);
+sub duckdb_bind_add_result_column(BindInfo $info, Str $name, LogicalType $type) is native(libduckdb) is export { * }
+
+#| DUCKDB_API idx_t duckdb_bind_get_parameter_count(duckdb_bind_info info);
+sub duckdb_bind_get_parameter_count(BindInfo $info) returns uint64 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_value duckdb_bind_get_parameter(duckdb_bind_info info, idx_t index);
+sub duckdb_bind_get_parameter(BindInfo $info, uint64 $index) returns DuckValue is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_bind_set_bind_data(duckdb_bind_info info, void *bind_data, duckdb_delete_callback_t destroy);
+sub duckdb_bind_set_bind_data(BindInfo $info, Pointer $data, Pointer $destroy) is native(libduckdb) is export { * }
+
+# --- Init info ---
+
+#| DUCKDB_API void *duckdb_init_get_bind_data(duckdb_init_info info);
+sub duckdb_init_get_bind_data(InitInfo $info) returns Pointer is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_init_set_init_data(duckdb_init_info info, void *init_data, duckdb_delete_callback_t destroy);
+sub duckdb_init_set_init_data(InitInfo $info, Pointer $data, Pointer $destroy) is native(libduckdb) is export { * }
+
+# --- Function info ---
+
+#| DUCKDB_API void *duckdb_function_get_bind_data(duckdb_function_info info);
+sub duckdb_function_get_bind_data(FunctionInfo $info) returns Pointer is native(libduckdb) is export { * }
+
+#| DUCKDB_API void *duckdb_function_get_init_data(duckdb_function_info info);
+sub duckdb_function_get_init_data(FunctionInfo $info) returns Pointer is native(libduckdb) is export { * }
+
+# --- Data chunk (table function output) ---
+
+#| DUCKDB_API duckdb_vector duckdb_data_chunk_get_vector(duckdb_data_chunk chunk, idx_t col_idx);
+sub duckdb_data_chunk_get_vector(DataChunk $chunk, uint64 $col) returns DuckVector is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_data_chunk_set_size(duckdb_data_chunk chunk, idx_t size);
+sub duckdb_data_chunk_set_size(DataChunk $chunk, uint64 $size) is native(libduckdb) is export { * }
+
+# --- Vector ---
+
+#| DUCKDB_API void *duckdb_vector_get_data(duckdb_vector vector);
+sub duckdb_vector_get_data(DuckVector $vec) returns Pointer is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_vector_assign_string_element(duckdb_vector vector, idx_t index, const char *str);
+sub duckdb_vector_assign_string_element(DuckVector $vec, uint64 $idx, Str $str) is native(libduckdb) is export { * }
+
+#| DUCKDB_API idx_t duckdb_vector_size();
+sub duckdb_vector_size() returns uint64 is native(libduckdb) is export { * }
+
+#| DUCKDB_API idx_t duckdb_data_chunk_get_size(duckdb_data_chunk chunk);
+sub duckdb_data_chunk_get_size(DataChunk $chunk) returns uint64 is native(libduckdb) is export { * }
+
+# --- Value API ---
+
+#| DUCKDB_API void duckdb_destroy_value(duckdb_value *value);
+sub duckdb_destroy_value(DuckValue $val is rw) is native(libduckdb) is export { * }
+
+#| DUCKDB_API char *duckdb_get_varchar(duckdb_value value);
+sub duckdb_get_varchar(DuckValue $val) returns Str is native(libduckdb) is export { * }
+
+#| DUCKDB_API int64_t duckdb_get_int64(duckdb_value value);
+sub duckdb_get_int64(DuckValue $val) returns int64 is native(libduckdb) is export { * }
+
+# --- Scalar functions ---
+
+#| `duckdb_scalar_function` :
+#| A scalar (row-level) UDF. Must be destroyed with `duckdb_destroy_scalar_function`.
+class ScalarFunction is repr('CPointer') is export { }
+
+#| DUCKDB_API duckdb_scalar_function duckdb_create_scalar_function();
+sub duckdb_create_scalar_function() returns ScalarFunction is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_destroy_scalar_function(duckdb_scalar_function *scalar_function);
+sub duckdb_destroy_scalar_function(ScalarFunction $sf is rw) is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_scalar_function_set_name(duckdb_scalar_function scalar_function, const char *name);
+sub duckdb_scalar_function_set_name(ScalarFunction $sf, Str $name) is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_scalar_function_add_parameter(duckdb_scalar_function scalar_function, duckdb_logical_type type);
+sub duckdb_scalar_function_add_parameter(ScalarFunction $sf, LogicalType $type) is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_scalar_function_set_return_type(duckdb_scalar_function scalar_function, duckdb_logical_type type);
+sub duckdb_scalar_function_set_return_type(ScalarFunction $sf, LogicalType $type) is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_scalar_function_set_extra_info(duckdb_scalar_function scalar_function, void *extra_info, duckdb_delete_callback_t destroy);
+sub duckdb_scalar_function_set_extra_info(ScalarFunction $sf, Pointer $extra, Pointer $destroy) is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_scalar_function_set_function(duckdb_scalar_function scalar_function, duckdb_scalar_function_t function);
+#| The callback signature is: void f(duckdb_function_info info, duckdb_data_chunk input, duckdb_vector output)
+sub duckdb_scalar_function_set_function(ScalarFunction $sf, &callback (FunctionInfo, DataChunk, DuckVector)) is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_register_scalar_function(duckdb_connection con, duckdb_scalar_function scalar_function);
+sub duckdb_register_scalar_function(Connection $conn, ScalarFunction $sf) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API void *duckdb_scalar_function_get_extra_info(duckdb_function_info info);
+sub duckdb_scalar_function_get_extra_info(FunctionInfo $info) returns Pointer is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_scalar_function_set_error(duckdb_function_info info, const char *error);
+sub duckdb_scalar_function_set_error(FunctionInfo $info, Str $error) is native(libduckdb) is export { * }
+
