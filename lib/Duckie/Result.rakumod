@@ -97,13 +97,43 @@ multi method column-data(Int $c --> List) {
     $v.add($n).deref;
   }
 
+  my $logical-type = duckdb_column_logical_type($!res, $c);
+  my @ret;
+
+  # These types use per-row value functions and work even when column data pointer is null
+  given $column-type {
+    when DUCKDB_TYPE_BOOLEAN {
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! so duckdb_value_boolean($!res, $c, $_) };
+      return @ret;
+    }
+    when DUCKDB_TYPE_TIME_TZ {
+      @ret = (^$count).map: {
+        if $null-mask[$_] { Nil }
+        else { duckdb_value_string($!res, $c, $_) // Nil }
+      };
+      return @ret;
+    }
+    when DUCKDB_TYPE_TIMESTAMP_TZ {
+      @ret = (^$count).map: {
+        if $null-mask[$_] { Nil }
+        else {
+          my $s = duckdb_value_string($!res, $c, $_);
+          $s.defined ?? do {
+            $s .= subst(' ', 'T');
+            $s .= subst(/ (<[+-]>) (\d\d) (\d\d)? $ /, { "$0$1:" ~ ($2 // '00') });
+            try DateTime.new($s) // $s
+          } !! Nil
+        }
+      };
+      return @ret;
+    }
+  }
+
   without $data {
     warning "no data for column $c ({self.column-names[ $c ]}) of type { %types{$column-type} }";
     my @ret = (^$count).map: { Nil }
     return @ret;
   }
-  my $logical-type = duckdb_column_logical_type($!res, $c);
-  my @ret;
   given $column-type {
     when DUCKDB_TYPE_TINYINT {
       my $values = nativecast(Pointer[int8], $data);
@@ -149,10 +179,6 @@ multi method column-data(Int $c --> List) {
           Buf.new( (^$blob.size).map({ $src[$_] }) )
         }
       }
-    }
-    when DUCKDB_TYPE_BOOLEAN {
-      my $values = nativecast(Pointer[uint8], $data);
-      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! so val-at($values,$_) };
     }
     when DUCKDB_TYPE_DECIMAL {
       my $width = duckdb_decimal_width($logical-type);

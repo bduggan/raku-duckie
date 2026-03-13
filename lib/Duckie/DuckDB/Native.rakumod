@@ -213,6 +213,9 @@ my constant NULL is export = Pointer;
 #| DUCKDB_API duckdb_string duckdb_value_string(duckdb_result *result, idx_t col, idx_t row);
 sub duckdb_value_string(Result $res, uint64 $col, uint64 $row) returns Str is native(libduckdb) is export { * }
 
+#| DUCKDB_API bool duckdb_value_boolean(duckdb_result *result, idx_t col, idx_t row);
+sub duckdb_value_boolean(Result $res, uint64 $col, uint64 $row) returns int32 is native(libduckdb) is export { * }
+
 #| DUCKDB_API uint64_t duckdb_value_uint64(duckdb_result *result, idx_t col, idx_t row);
 sub duckdb_value_uint64(Result $res, uint64 $col, uint64 $row) returns uint64 is native(libduckdb) is export { * }
 
