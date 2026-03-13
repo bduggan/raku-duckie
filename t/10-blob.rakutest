@@ -1,0 +1,42 @@
+#!/usr/bin/env raku
+
+use Test;
+use Duckie;
+
+plan 10;
+
+my $db = Duckie.new;
+
+# --- Reading blob data ---
+
+with $db.query(q[select '\x41\x42\x43'::blob as b]) {
+  my $data = .column-data(0);
+  ok $data[0] ~~ Buf, 'blob column returns a Buf';
+  is $data[0].elems, 3, 'blob has 3 bytes';
+  is $data[0][0], 0x41, 'first byte is 0x41 (A)';
+  is $data[0][1], 0x42, 'second byte is 0x42 (B)';
+  is $data[0][2], 0x43, 'third byte is 0x43 (C)';
+  is .column-types[0], 'BLOB', 'column type is BLOB';
+}
+
+# --- Null blob ---
+
+with $db.query(q[select null::blob as b]) {
+  my $data = .column-data(0);
+  ok !defined($data[0]), 'null blob returns Nil';
+}
+
+# --- Binding blob parameters ---
+
+$db.query('create table blobtest (id int, data blob)');
+my $blob = Buf.new(0x01, 0x02, 0x03, 0x04);
+$db.query('insert into blobtest values (?, ?)', 1, $blob);
+
+with $db.query('select data from blobtest where id = 1') {
+  my $data = .column-data(0);
+  ok $data[0] ~~ Buf, 'bound blob reads back as Buf';
+  is $data[0].elems, 4, 'blob has 4 bytes';
+  is-deeply $data[0], Buf.new(0x01, 0x02, 0x03, 0x04), 'blob data matches';
+}
+
+done-testing;

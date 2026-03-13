@@ -116,6 +116,7 @@ is used.  The database is opened and connected to when the object is created.
 use Duckie::DuckDB::Native;
 use Duckie::Result;
 use Log::Async;
+use NativeCall;
 
 logger.untapped-ok = True;
 
@@ -157,6 +158,7 @@ method !bind-value(DuckDB::Native::PreparedStatement $stmt, Int $idx, $val) {
     when Int        { duckdb_bind_int64($stmt, $idx, $val) }
     when Rat | Num  { duckdb_bind_double($stmt, $idx, $val.Num) }
     when Str        { duckdb_bind_varchar($stmt, $idx, $val) }
+    when Blob       { duckdb_bind_blob($stmt, $idx, CArray[uint8].new($val), $val.elems) }
     default         { duckdb_bind_varchar($stmt, $idx, ~$val) }
   };
   fail "Failed to bind parameter at index $idx" unless $rc == DUCKDB_SUCCESS;

@@ -138,6 +138,18 @@ multi method column-data(Int $c --> List) {
     when DUCKDB_TYPE_VARCHAR {
       @ret = (^$count).map: { $null-mask[$_] ?? Nil !! duckdb_value_string($!res,$c,$_) }
     }
+    when DUCKDB_TYPE_BLOB {
+      my $values := nativecast(Pointer[DuckBlob], $data);
+      @ret = (^$count).map: {
+        if $null-mask[$_] {
+          Nil
+        } else {
+          my $blob = val-at($values, $_);
+          my $src = nativecast(CArray[uint8], $blob.data);
+          Buf.new( (^$blob.size).map({ $src[$_] }) )
+        }
+      }
+    }
     when DUCKDB_TYPE_BOOLEAN {
       my $values = nativecast(Pointer[uint8], $data);
       @ret = (^$count).map: { $null-mask[$_] ?? Nil !! so val-at($values,$_) };

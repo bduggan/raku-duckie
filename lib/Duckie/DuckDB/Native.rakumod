@@ -139,6 +139,13 @@ class HugeInt is repr('CStruct') is export {
   }
 }
 
+#| `duckdb_blob` :
+#| Blobs are composed of a pointer to data and a size
+class DuckBlob is repr('CStruct') is export {
+  has Pointer $.data; # void *data;
+  has uint64 $.size;  # idx_t size;
+}
+
 #| `duckdb_uhugeint` :
 #| An unsigned hugeint, similar to duckdb_hugeint
 class UHugeInt is repr('CStruct') is export {
@@ -334,4 +341,7 @@ sub duckdb_bind_varchar(PreparedStatement $stmt, uint64 $idx, Str $val) returns 
 
 #| DUCKDB_API duckdb_state duckdb_bind_null(duckdb_prepared_statement prepared_statement, idx_t param_idx);
 sub duckdb_bind_null(PreparedStatement $stmt, uint64 $idx) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_bind_blob(duckdb_prepared_statement prepared_statement, idx_t param_idx, const void *data, idx_t length);
+sub duckdb_bind_blob(PreparedStatement $stmt, uint64 $idx, CArray[uint8] $data, uint64 $length) returns int32 is native(libduckdb) is export { * }
 
