@@ -1,0 +1,66 @@
+#!/usr/bin/env raku
+
+use Test;
+use Duckie;
+
+plan 21;
+
+my $db = Duckie.new;
+
+$db.query('create table foo (x int, y text, z double, b boolean)');
+$db.query(q[insert into foo values (1, 'one', 1.5, true), (2, 'two', 2.5, false), (3, 'three', 3.5, true)]);
+
+# --- Positional: single integer ---
+
+my $r = $db.query('select * from foo where x = ?', 2);
+ok $r, 'query with positional int succeeds';
+is $r.rows.elems, 1, '1 row for x = 2';
+is $r.rows[0]<x>, 2, 'correct x';
+is $r.rows[0]<y>, 'two', 'correct y';
+
+# --- Positional: single string ---
+
+$r = $db.query('select * from foo where y = ?', 'three');
+ok $r, 'query with positional string succeeds';
+is $r.rows.elems, 1, '1 row for y = three';
+is $r.rows[0]<x>, 3, 'correct x for string bind';
+
+# --- Positional: multiple parameters ---
+
+$r = $db.query('select * from foo where x = ? or x = ?', 1, 3);
+ok $r, 'query with multiple positional params';
+is $r.rows.elems, 2, '2 rows for x in (1, 3)';
+
+# --- Positional: Rat/Num (double) ---
+
+$r = $db.query('select y from foo where z > ?', 2.0);
+ok $r, 'query with positional Rat succeeds';
+is $r.rows.elems, 2, '2 rows for z > 2.0';
+
+# --- Named parameter ---
+
+$r = $db.query('select * from foo where x = $val', val => 2);
+ok $r, 'query with named param succeeds';
+is $r.rows.elems, 1, '1 row for named x = 2';
+is $r.rows[0]<y>, 'two', 'correct y for named bind';
+
+# --- Named parameter: string ---
+
+$r = $db.query('select x from foo where y = $name', name => 'one');
+ok $r, 'query with named string param succeeds';
+is $r.rows.elems, 1, '1 row for named y = one';
+is $r.rows[0]<x>, 1, 'correct x for named string bind';
+
+# --- Null bind ---
+
+$r = $db.query('select ? is null as isnull', Any);
+ok $r, 'query with null bind succeeds';
+ok $r.rows[0]<isnull>, 'null bind: IS NULL is true';
+
+# --- No params still works ---
+
+$r = $db.query('select count(*) as n from foo');
+ok $r, 'plain query still works';
+is $r.rows[0]<n>, 3, 'count is 3';
+
+done-testing;

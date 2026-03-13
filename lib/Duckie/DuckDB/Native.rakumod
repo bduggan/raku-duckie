@@ -281,3 +281,57 @@ sub duckdb_decimal_scale(LogicalType $type) returns uint8 is native(libduckdb) i
 #| DUCKDB_API duckdb_type duckdb_decimal_internal_type(duckdb_logical_type type);
 sub duckdb_decimal_internal_type(LogicalType $type) returns uint32 is native(libduckdb) is export { * }
 
+#| `duckdb_prepared_statement` :
+#| A prepared statement object. Must be destroyed with `duckdb_destroy_prepared_statement`.
+class PreparedStatement is repr('CPointer') is export { }
+
+#| DUCKDB_API duckdb_state duckdb_prepare(duckdb_connection connection, const char *query, duckdb_prepared_statement *out_prepared_statement);
+sub duckdb_prepare(Connection $conn, Str $query, PreparedStatement $stmt is rw) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_destroy_prepare(duckdb_prepared_statement *prepared_statement);
+sub duckdb_destroy_prepare(PreparedStatement $stmt is rw) is native(libduckdb) is export { * }
+
+#| DUCKDB_API const char *duckdb_prepare_error(duckdb_prepared_statement prepared_statement);
+sub duckdb_prepare_error(PreparedStatement $stmt) returns Str is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_execute_prepared(duckdb_prepared_statement prepared_statement, duckdb_result *out_result);
+sub duckdb_execute_prepared(PreparedStatement $stmt, Result $res is rw) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API idx_t duckdb_nparams(duckdb_prepared_statement prepared_statement);
+sub duckdb_nparams(PreparedStatement $stmt) returns uint64 is native(libduckdb) is export { * }
+
+#| DUCKDB_API const char *duckdb_parameter_name(duckdb_prepared_statement prepared_statement, idx_t index);
+#| Returns the name of the parameter at the given index (1-based). The name includes the leading '$'.
+sub duckdb_parameter_name(PreparedStatement $stmt, uint64 $idx) returns Str is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_bind_parameter_index(duckdb_prepared_statement prepared_statement, idx_t *param_idx, const char *name);
+#| Looks up the 1-based index of a named parameter by name (without the leading '$').
+sub duckdb_bind_parameter_index(PreparedStatement $stmt, uint64 $param_idx is rw, Str $name) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_bind_boolean(duckdb_prepared_statement prepared_statement, idx_t param_idx, bool val);
+sub duckdb_bind_boolean(PreparedStatement $stmt, uint64 $idx, int32 $val) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_bind_int8(duckdb_prepared_statement prepared_statement, idx_t param_idx, int8_t val);
+sub duckdb_bind_int8(PreparedStatement $stmt, uint64 $idx, int8 $val) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_bind_int16(duckdb_prepared_statement prepared_statement, idx_t param_idx, int16_t val);
+sub duckdb_bind_int16(PreparedStatement $stmt, uint64 $idx, int16 $val) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_bind_int32(duckdb_prepared_statement prepared_statement, idx_t param_idx, int32_t val);
+sub duckdb_bind_int32(PreparedStatement $stmt, uint64 $idx, int32 $val) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_bind_int64(duckdb_prepared_statement prepared_statement, idx_t param_idx, int64_t val);
+sub duckdb_bind_int64(PreparedStatement $stmt, uint64 $idx, int64 $val) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_bind_float(duckdb_prepared_statement prepared_statement, idx_t param_idx, float val);
+sub duckdb_bind_float(PreparedStatement $stmt, uint64 $idx, num32 $val) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_bind_double(duckdb_prepared_statement prepared_statement, idx_t param_idx, double val);
+sub duckdb_bind_double(PreparedStatement $stmt, uint64 $idx, num64 $val) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_bind_varchar(duckdb_prepared_statement prepared_statement, idx_t param_idx, const char *val);
+sub duckdb_bind_varchar(PreparedStatement $stmt, uint64 $idx, Str $val) returns int32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_state duckdb_bind_null(duckdb_prepared_statement prepared_statement, idx_t param_idx);
+sub duckdb_bind_null(PreparedStatement $stmt, uint64 $idx) returns int32 is native(libduckdb) is export { * }
+
