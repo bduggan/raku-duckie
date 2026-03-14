@@ -235,6 +235,55 @@ sub _sf-func-cb(DuckDB::Native::FunctionInfo $info,
 }
 
 # ---------------------------------------------------------------------------
+# Duckie::PreparedStatement class
+# ---------------------------------------------------------------------------
+
+class Duckie::PreparedStatement {
+  has DuckDB::Native::PreparedStatement $.stmt .= new;
+
+  submethod DESTROY { duckdb_destroy_prepare($!stmt) }
+
+  method !bind-value(Int $idx, $val) {
+    my $rc = do given $val {
+      when !.defined  { duckdb_bind_null($!stmt, $idx) }
+      when Bool       { duckdb_bind_boolean($!stmt, $idx, $val ?? 1 !! 0) }
+      when Int        { duckdb_bind_int64($!stmt, $idx, $val) }
+      when Rat | Num  { duckdb_bind_double($!stmt, $idx, $val.Num) }
+      when Str        { duckdb_bind_varchar($!stmt, $idx, $val) }
+      when Blob       { duckdb_bind_blob($!stmt, $idx, CArray[uint8].new($val), $val.elems) }
+      default         { duckdb_bind_varchar($!stmt, $idx, ~$val) }
+    };
+    fail "Failed to bind parameter at index $idx" unless $rc == DUCKDB_SUCCESS;
+  }
+
+  multi method execute(--> Duckie::Result) {
+    my $res = DuckDB::Native::Result.new;
+    unless duckdb_execute_prepared($!stmt, $res) == DUCKDB_SUCCESS {
+      fail duckdb_result_error($res);
+    }
+    Duckie::Result.new(:$res);
+  }
+
+  multi method execute(*@params where @params > 0 --> Duckie::Result) {
+    for @params.kv -> $i, $val {
+      self!bind-value($i + 1, $val);
+    }
+    self.execute;
+  }
+
+  multi method execute(*%named where %named.keys > 0 --> Duckie::Result) {
+    for %named.kv -> $name, $val {
+      my uint64 $idx = 0;
+      unless duckdb_bind_parameter_index($!stmt, $idx, $name) == DUCKDB_SUCCESS {
+        fail "Unknown bind parameter: \$$name";
+      }
+      self!bind-value($idx, $val);
+    }
+    self.execute;
+  }
+}
+
+# ---------------------------------------------------------------------------
 # Duckie class
 # ---------------------------------------------------------------------------
 
@@ -369,7 +418,32 @@ submethod TWEAK {
   duckdb_connect($!dbh, $!conn) == +DUCKDB_SUCCESS or fail "Failed to connect to database";
 }
 
-#| Run a query and return a result.  If the query fails, a soft failure is thrown.
+=begin pod
+
+=head3 method query
+
+=begin code
+
+multi method query(Str $sql --> Duckie::Result)
+multi method query(Str $sql, *@params --> Duckie::Result)
+multi method query(Str $sql, *%named --> Duckie::Result)
+
+=end code
+
+Run a query and return a C<Duckie::Result>.  If the query fails, a soft failure is thrown.
+
+Use C<?> as positional placeholders and C<$name> for named placeholders.
+
+=begin code
+
+$db.query("select 1 as n").rows;
+$db.query('select ? as n', 42);
+$db.query('select $x + $y as sum', x => 1, y => 2);
+
+=end code
+
+=end pod
+
 multi method query(Str $sql --> Duckie::Result) {
   trace "Running query: $sql";
   my $res = DuckDB::Native::Result.new;
@@ -379,59 +453,61 @@ multi method query(Str $sql --> Duckie::Result) {
   return Duckie::Result.new(:$res);
 }
 
-method !bind-value(DuckDB::Native::PreparedStatement $stmt, Int $idx, $val) {
-  my $rc = do given $val {
-    when !.defined  { duckdb_bind_null($stmt, $idx) }
-    when Bool       { duckdb_bind_boolean($stmt, $idx, $val ?? 1 !! 0) }
-    when Int        { duckdb_bind_int64($stmt, $idx, $val) }
-    when Rat | Num  { duckdb_bind_double($stmt, $idx, $val.Num) }
-    when Str        { duckdb_bind_varchar($stmt, $idx, $val) }
-    when Blob       { duckdb_bind_blob($stmt, $idx, CArray[uint8].new($val), $val.elems) }
-    default         { duckdb_bind_varchar($stmt, $idx, ~$val) }
-  };
-  fail "Failed to bind parameter at index $idx" unless $rc == DUCKDB_SUCCESS;
+=begin pod
+
+=head3 method prepare
+
+=begin code
+
+method prepare(Str $sql --> Duckie::PreparedStatement)
+
+=end code
+
+Prepare a statement.  Returns a C<Duckie::PreparedStatement>.
+Use C<?> for positional parameters or C<$name> for named parameters.
+
+The returned C<Duckie::PreparedStatement> has an C<execute> method:
+
+=begin code
+
+multi method execute(--> Duckie::Result)
+multi method execute(*@params --> Duckie::Result)
+multi method execute(*%named --> Duckie::Result)
+
+=end code
+
+Execute the prepared statement, optionally binding positional (C<?>) or named (C<$name>) parameters.
+
+=begin code
+
+my $stmt = $db.prepare('select ? as n, ? as s');
+$stmt.execute(42, 'hello').rows;
+# [{n => 42, s => hello}]
+
+my $stmt2 = $db.prepare('select $x + $y as sum');
+$stmt2.execute(x => 1, y => 2).rows;
+
+=end code
+
+=end pod
+
+method prepare(Str $sql --> Duckie::PreparedStatement) {
+  trace "Preparing query: $sql";
+  my $ps = Duckie::PreparedStatement.new;
+  unless duckdb_prepare($!conn, $sql, $ps.stmt) == DUCKDB_SUCCESS {
+    fail duckdb_prepare_error($ps.stmt);
+  }
+  $ps;
 }
 
 multi method query(Str $sql, *@params where @params > 0 --> Duckie::Result) {
   trace "Running prepared query: $sql";
-  my $stmt = DuckDB::Native::PreparedStatement.new;
-  LEAVE duckdb_destroy_prepare($stmt);
-
-  unless duckdb_prepare($!conn, $sql, $stmt) == DUCKDB_SUCCESS {
-    fail duckdb_prepare_error($stmt);
-  }
-
-  for @params.kv -> $i, $val {
-    self!bind-value($stmt, $i + 1, $val);
-  }
-  my $res = DuckDB::Native::Result.new;
-  unless duckdb_execute_prepared($stmt, $res) == DUCKDB_SUCCESS {
-    fail duckdb_result_error($res);
-  }
-  return Duckie::Result.new(:$res);
+  self.prepare($sql).execute(|@params);
 }
 
 multi method query(Str $sql, *%named where %named.keys > 0 --> Duckie::Result) {
-  my $stmt = DuckDB::Native::PreparedStatement.new;
-  LEAVE duckdb_destroy_prepare($stmt);
-  unless duckdb_prepare($!conn, $sql, $stmt) == DUCKDB_SUCCESS {
-    fail duckdb_prepare_error($stmt);
-  }
-  for %named.kv -> $name, $val {
-    my uint64 $idx = 0;
-    unless duckdb_bind_parameter_index($stmt, $idx, $name) == DUCKDB_SUCCESS {
-      fail "Unknown bind parameter: \$$name";
-    }
-    self!bind-value($stmt, $idx, $val);
-  }
-  my $res = DuckDB::Native::Result.new;
-  unless duckdb_execute_prepared($stmt, $res) == DUCKDB_SUCCESS {
-    fail duckdb_result_error($res);
-  }
-  return Duckie::Result.new(:$res);
+  self.prepare($sql).execute(|%named);
 }
-
-
 
 =begin pod
 
@@ -573,7 +649,14 @@ method register-scalar-function(Str $name, :@params!, :$returns!, :&function!) {
   self
 }
 
-#| Close the database connection and free resources.
+=begin pod
+
+=head3 method DESTROY
+
+Close the database connection and free resources.
+
+=end pod
+
 method DESTROY {
   duckdb_disconnect($!conn);
   $!conn = Nil;

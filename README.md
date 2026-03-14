@@ -85,15 +85,38 @@ Create a new Duckie object. The optional `:file` parameter specifies the path to
 
 ### method query
 
-```raku
-method query(
-    Str $sql,
-    *@params,
-    *%named
-) returns Duckie::Result
-```
+    multi method query(Str $sql --> Duckie::Result)
+    multi method query(Str $sql, *@params --> Duckie::Result)
+    multi method query(Str $sql, *%named --> Duckie::Result)
 
-Run a query and return a result. If the query fails, a soft failure is thrown. Optionally accepts positional bind parameters (C<?> placeholders) or named bind parameters (C<$name> placeholders) as named arguments.
+Run a query and return a `Duckie::Result`. If the query fails, a soft failure is thrown.
+
+Use `?` as positional placeholders and `$name` for named placeholders.
+
+    $db.query("select 1 as n").rows;
+    $db.query('select ? as n', 42);
+    $db.query('select $x + $y as sum', x => 1, y => 2);
+
+### method prepare
+
+    method prepare(Str $sql --> Duckie::PreparedStatement)
+
+Prepare a statement. Returns a `Duckie::PreparedStatement`. Use `?` for positional parameters or `$name` for named parameters.
+
+The returned `Duckie::PreparedStatement` has an `execute` method:
+
+    multi method execute(--> Duckie::Result)
+    multi method execute(*@params --> Duckie::Result)
+    multi method execute(*%named --> Duckie::Result)
+
+Execute the prepared statement, optionally binding positional (`?`) or named (`$name`) parameters.
+
+    my $stmt = $db.prepare('select ? as n, ? as s');
+    $stmt.execute(42, 'hello').rows;
+    # [{n => 42, s => hello}]
+
+    my $stmt2 = $db.prepare('select $x + $y as sum');
+    $stmt2.execute(x => 1, y => 2).rows;
 
 ### method register-table-function
 
@@ -142,10 +165,6 @@ Register a user-defined scalar function that calls a Raku subroutine once per in
     # ['HELLO WORLD']
 
 ### method DESTROY
-
-```raku
-method DESTROY() returns Mu
-```
 
 Close the database connection and free resources.
 
