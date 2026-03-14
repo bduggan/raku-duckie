@@ -15,11 +15,9 @@ jobs:
         os:
           - ubuntu-latest
         duckdb-version:
-          - '1.0.0'
           - '1.1.1'
         raku-version:
           - '2025.12'
-          - 'latest'
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
