@@ -1,0 +1,101 @@
+#!/usr/bin/env raku
+
+use Test;
+use Duckie;
+
+plan 30;
+
+my $db = Duckie.new;
+
+$db.query('create table foo (x int, y text, z double, b boolean)');
+$db.query(q[insert into foo values (1, 'one', 1.5, true), (2, 'two', 2.5, false), (3, 'three', 3.5, true)]);
+
+# --- prepare returns a PreparedStatement ---
+
+my $stmt = $db.prepare('select x, y from foo where x = ?');
+ok $stmt, 'prepare returns a truthy value';
+ok $stmt ~~ Duckie::PreparedStatement, 'prepare returns a Duckie::PreparedStatement';
+
+# --- execute with positional int ---
+
+my $r = $stmt.execute(2);
+ok $r, 'execute with positional int succeeds';
+is $r.rows.elems, 1, '1 row for x = 2';
+is $r.rows[0]<x>, 2, 'correct x';
+is $r.rows[0]<y>, 'two', 'correct y';
+
+# --- re-execute same stmt with different value ---
+
+$r = $stmt.execute(1);
+ok $r, 're-execute with different positional param succeeds';
+is $r.rows.elems, 1, '1 row for x = 1';
+is $r.rows[0]<y>, 'one', 'correct y on re-execute';
+
+# --- execute with positional string ---
+
+$stmt = $db.prepare('select x from foo where y = ?');
+$r = $stmt.execute('three');
+ok $r, 'execute with positional string succeeds';
+is $r.rows.elems, 1, '1 row for y = three';
+is $r.rows[0]<x>, 3, 'correct x for string bind';
+
+# --- execute with multiple positional params ---
+
+$stmt = $db.prepare('select y from foo where x >= ? and x <= ?');
+$r = $stmt.execute(1, 2);
+ok $r, 'execute with multiple positional params succeeds';
+is $r.rows.elems, 2, '2 rows for x between 1 and 2';
+
+# --- execute with named params ---
+
+$stmt = $db.prepare('select y from foo where x = $val');
+$r = $stmt.execute(val => 3);
+ok $r, 'execute with named param succeeds';
+is $r.rows.elems, 1, '1 row for named x = 3';
+is $r.rows[0]<y>, 'three', 'correct y for named bind';
+
+# --- execute with named string param ---
+
+$stmt = $db.prepare('select x from foo where y = $name');
+$r = $stmt.execute(name => 'one');
+ok $r, 'execute with named string param succeeds';
+is $r.rows[0]<x>, 1, 'correct x for named string bind';
+
+# --- execute with no params ---
+
+$stmt = $db.prepare('select count(*) as n from foo');
+$r = $stmt.execute;
+ok $r, 'execute with no params succeeds';
+is $r.rows[0]<n>, 3, 'count is 3';
+
+# --- execute with null bind ---
+
+$stmt = $db.prepare('select ? is null as isnull');
+$r = $stmt.execute(Any);
+ok $r, 'execute with null succeeds';
+ok $r.rows[0]<isnull>, 'null bind: IS NULL is true';
+
+# --- execute with boolean bind ---
+
+$stmt = $db.prepare('select count(*) as n from foo where b = ?');
+$r = $stmt.execute(True);
+ok $r, 'execute with boolean True succeeds';
+is $r.rows[0]<n>, 2, '2 rows with b = true';
+
+$r = $stmt.execute(False);
+ok $r, 'execute with boolean False succeeds';
+is $r.rows[0]<n>, 1, '1 row with b = false';
+
+# --- execute with double bind ---
+
+$stmt = $db.prepare('select y from foo where z > ?');
+$r = $stmt.execute(2.0);
+ok $r, 'execute with double succeeds';
+is $r.rows.elems, 2, '2 rows for z > 2.0';
+
+# --- prepare failure ---
+
+my $bad = $db.prepare('this is not valid sql');
+nok $bad, 'prepare of invalid SQL returns a failure';
+
+done-testing;
