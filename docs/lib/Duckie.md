@@ -132,6 +132,8 @@ Register a user-defined table function that calls a Raku subroutine.
 
 `&function` is called once per query execution with the SQL arguments (as strings) and must return an iterable of arrays, one per output row.
 
+**Thread safety note**: registering any table or scalar function causes the connection to switch to single-threaded mode (`SET threads=1`). This is necessary because MoarVM NativeCall callbacks are bound to the OS thread that created them; if DuckDB's internal worker threads invoke a callback, MoarVM panics with "native callback ran on thread unknown to MoarVM". Single-threaded mode ensures callbacks are always invoked on the same thread that issued the query.
+
     $db.register-table-function('squares',
       columns  => ['n' => 'INTEGER', 'sq' => 'INTEGER'],
       params   => ['INTEGER'],
@@ -152,6 +154,8 @@ Register a user-defined table function that calls a Raku subroutine.
 Register a user-defined scalar function that calls a Raku subroutine once per input row.
 
 `&function` receives one argument per declared parameter and must return a single value of the declared return type.
+
+**Thread safety note**: see [register-table-function](register-table-function) — registering any UDF switches the connection to single-threaded mode to prevent MoarVM panics from DuckDB worker threads invoking NativeCall callbacks.
 
     $db.register-scalar-function('raku-upper',
       params   => ['VARCHAR'],

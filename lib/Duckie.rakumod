@@ -536,6 +536,14 @@ C<@params> declares the SQL parameter types accepted at the call site.
 C<&function> is called once per query execution with the SQL arguments
 (as strings) and must return an iterable of arrays, one per output row.
 
+B<Thread safety note>: registering any table or scalar function causes the
+connection to switch to single-threaded mode (C<SET threads=1>).  This is
+necessary because MoarVM NativeCall callbacks are bound to the OS thread
+that created them; if DuckDB's internal worker threads invoke a callback,
+MoarVM panics with "native callback ran on thread unknown to MoarVM".
+Single-threaded mode ensures callbacks are always invoked on the same thread
+that issued the query.
+
 =begin code
 
 $db.register-table-function('squares',
@@ -616,6 +624,10 @@ once per input row.
 
 C<&function> receives one argument per declared parameter and must return
 a single value of the declared return type.
+
+B<Thread safety note>: see L<register-table-function> — registering any
+UDF switches the connection to single-threaded mode to prevent MoarVM
+panics from DuckDB worker threads invoking NativeCall callbacks.
 
 =begin code
 
