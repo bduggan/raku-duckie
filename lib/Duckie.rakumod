@@ -412,6 +412,7 @@ has $.logger = logger;
 has DuckDB::Native::Database $.dbh .= new;
 has DuckDB::Native::Connection $.conn .= new;
 has Str $.file = ':memory:';
+has Bool $!single-threaded = False;
 
 submethod TWEAK {
   duckdb_open($!file, $!dbh) == +DUCKDB_SUCCESS or fail "Failed to open database $!file";
@@ -549,7 +550,20 @@ $db.query('SELECT * FROM squares(4)').rows;
 
 =end pod
 
+# MoarVM NativeCall callbacks are bound to the thread that created them.
+# DuckDB's worker threads are not MoarVM threads, so any UDF callback
+# invoked from a worker thread causes "native callback ran on thread unknown
+# to MoarVM".  Limiting DuckDB to one thread keeps all callbacks on the
+# thread that issued the query.
+method !ensure-single-threaded {
+  return if $!single-threaded;
+  $!single-threaded = True;
+  my $r = DuckDB::Native::Result.new;
+  duckdb_query($!conn, "SET threads=1", $r);
+}
+
 method register-table-function(Str $name, :@columns!, :@params = [], :&function!) {
+  self!ensure-single-threaded;
   my @cols = @columns.map: {
       $_ ~~ Pair ?? [$_.key, $_.value] !! $_
   };
@@ -618,6 +632,7 @@ $db.query("SELECT raku_upper('hello world')").column-data(0);
 =end pod
 
 method register-scalar-function(Str $name, :@params!, :$returns!, :&function!) {
+  self!ensure-single-threaded;
   @_sf_registry.push: _ScalarFuncDef.new(
       :$name,
       param-types => @params,
