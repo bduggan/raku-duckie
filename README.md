@@ -87,11 +87,59 @@ Create a new Duckie object. The optional `:file` parameter specifies the path to
 
 ```raku
 method query(
-    Str $sql
+    Str $sql,
+    *@params,
+    *%named
 ) returns Duckie::Result
 ```
 
-Run a query and return a result. If the query fails, a soft failure is thrown.
+Run a query and return a result. If the query fails, a soft failure is thrown. Optionally accepts positional bind parameters (C<?> placeholders) or named bind parameters (C<$name> placeholders) as named arguments.
+
+### method register-table-function
+
+    method register-table-function(
+      Str     $name,
+      :@columns,      # required: list of Pairs  name => 'TYPE'
+      :@params = [],  # optional: list of SQL parameter type names
+      :&function!,    # required: callable (*@params --> Iterable of arrays)
+    ) returns Duckie
+
+Register a user-defined table function that calls a Raku subroutine.
+
+`@columns` is a list of `Pair` objects mapping column name to DuckDB type string (e.g. `'n' =E<gt> 'INTEGER'`). Supported types: `VARCHAR`, `INTEGER`, `BIGINT`, `DOUBLE`, `FLOAT`, `BOOLEAN`.
+
+`@params` declares the SQL parameter types accepted at the call site.
+
+`&function` is called once per query execution with the SQL arguments (as strings) and must return an iterable of arrays, one per output row.
+
+    $db.register-table-function('squares',
+      columns  => ['n' => 'INTEGER', 'sq' => 'INTEGER'],
+      params   => ['INTEGER'],
+      function => sub ($n) { (1..$n.Int).map(-> $i { [$i, $i*$i] }) },
+    );
+    $db.query('SELECT * FROM squares(4)').rows;
+    # [{n => 1, sq => 1}, {n => 2, sq => 4}, ...]
+
+### method register-scalar-function
+
+    method register-scalar-function(
+      Str     $name,
+      :@params!,      # required: list of SQL parameter type names
+      :$returns!,     # required: return type name
+      :&function!,    # required: callable (*@row-values --> Any)
+    ) returns Duckie
+
+Register a user-defined scalar function that calls a Raku subroutine once per input row.
+
+`&function` receives one argument per declared parameter and must return a single value of the declared return type.
+
+    $db.register-scalar-function('raku-upper',
+      params   => ['VARCHAR'],
+      returns  => 'VARCHAR',
+      function => sub ($s) { $s.uc },
+    );
+    $db.query("SELECT raku_upper('hello world')").column-data(0);
+    # ['HELLO WORLD']
 
 ### method DESTROY
 

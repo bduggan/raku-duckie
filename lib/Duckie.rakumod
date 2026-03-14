@@ -370,14 +370,7 @@ submethod TWEAK {
 }
 
 #| Run a query and return a result.  If the query fails, a soft failure is thrown.
-#| Optionally accepts positional bind parameters (C<?> placeholders) or named bind
-#| parameters (C<$name> placeholders) as named arguments.
-method query(Str $sql, *@params, *%named --> Duckie::Result) {
-  return self!query-plain($sql) unless @params || %named;
-  return self!query-prepared($sql, @params, %named);
-}
-
-method !query-plain(Str $sql --> Duckie::Result) {
+multi method query(Str $sql --> Duckie::Result) {
   trace "Running query: $sql";
   my $res = DuckDB::Native::Result.new;
   unless (duckdb_query($!conn, $sql, $res) == DUCKDB_SUCCESS) {
@@ -399,7 +392,7 @@ method !bind-value(DuckDB::Native::PreparedStatement $stmt, Int $idx, $val) {
   fail "Failed to bind parameter at index $idx" unless $rc == DUCKDB_SUCCESS;
 }
 
-method !query-prepared(Str $sql, @params, %named --> Duckie::Result) {
+multi method query(Str $sql, *@params where @params > 0 --> Duckie::Result) {
   trace "Running prepared query: $sql";
   my $stmt = DuckDB::Native::PreparedStatement.new;
   LEAVE duckdb_destroy_prepare($stmt);
@@ -408,26 +401,37 @@ method !query-prepared(Str $sql, @params, %named --> Duckie::Result) {
     fail duckdb_prepare_error($stmt);
   }
 
-  if @params {
-    for @params.kv -> $i, $val {
-      self!bind-value($stmt, $i + 1, $val);
-    }
-  } else {
-    for %named.kv -> $name, $val {
-      my uint64 $idx = 0;
-      unless duckdb_bind_parameter_index($stmt, $idx, $name) == DUCKDB_SUCCESS {
-        fail "Unknown bind parameter: \$$name";
-      }
-      self!bind-value($stmt, $idx, $val);
-    }
+  for @params.kv -> $i, $val {
+    self!bind-value($stmt, $i + 1, $val);
   }
-
   my $res = DuckDB::Native::Result.new;
   unless duckdb_execute_prepared($stmt, $res) == DUCKDB_SUCCESS {
     fail duckdb_result_error($res);
   }
   return Duckie::Result.new(:$res);
 }
+
+multi method query(Str $sql, *%named where %named.keys > 0 --> Duckie::Result) {
+  my $stmt = DuckDB::Native::PreparedStatement.new;
+  LEAVE duckdb_destroy_prepare($stmt);
+  unless duckdb_prepare($!conn, $sql, $stmt) == DUCKDB_SUCCESS {
+    fail duckdb_prepare_error($stmt);
+  }
+  for %named.kv -> $name, $val {
+    my uint64 $idx = 0;
+    unless duckdb_bind_parameter_index($stmt, $idx, $name) == DUCKDB_SUCCESS {
+      fail "Unknown bind parameter: \$$name";
+    }
+    self!bind-value($stmt, $idx, $val);
+  }
+  my $res = DuckDB::Native::Result.new;
+  unless duckdb_execute_prepared($stmt, $res) == DUCKDB_SUCCESS {
+    fail duckdb_result_error($res);
+  }
+  return Duckie::Result.new(:$res);
+}
+
+
 
 =begin pod
 
