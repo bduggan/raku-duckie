@@ -18,6 +18,8 @@ jobs:
           - '1.1.1'
         raku-version:
           - '2025.12'
+          - '2026.01'
+          - '2026.02'
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
