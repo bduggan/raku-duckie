@@ -243,6 +243,11 @@ multi method column-data(Int $c --> List) {
       my $values = nativecast(Pointer[num64],$data);
       @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Numeric };
     }
+    when DUCKDB_TYPE_BIGNUM {
+      @ret = (^$count).map: {
+        $null-mask[$_] ?? Nil !! (duckdb_value_string($!res, $c, $_) // Nil).andthen: { .Int }
+      };
+    }
     when DUCKDB_TYPE_INVALID {
       fail "invalid column $c";
     }
