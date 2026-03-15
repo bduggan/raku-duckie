@@ -1,0 +1,31 @@
+#!/usr/bin/env raku
+
+use Duckie;
+use Duckie::DuckDB::Native;
+use Test;
+
+plan 1;
+
+my $lib-ver = Version.new(duckdb_library_version().subst(/^'v'/, ''));
+my $db = Duckie.new;
+
+if $lib-ver before v1.1.0 {
+  throws-like {
+    $db.register-scalar-function:
+      'addem',
+      params   => <INTEGER INTEGER>,
+      returns  => 'INTEGER',
+      function => sub ($a, $b) { $a + $b };
+  }, X::AdHoc, message => /'>= 1.1.0'/, "old libduckdb ($lib-ver) rejects scalar UDF with version error";
+} else {
+  $db.register-scalar-function:
+    'addem',
+    params   => <INTEGER INTEGER>,
+    returns  => 'INTEGER',
+    function => sub ($a, $b) { $a + $b };
+
+  my $result = $db.query('SELECT addem(2, 3) AS result').rows[0];
+  is $result<result>, 5, 'scalar UDF works';
+}
+
+done-testing;

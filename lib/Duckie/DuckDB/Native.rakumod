@@ -52,6 +52,7 @@ sub libduckdb {
   'duckdb'
 };
 
+
 enum DuckDBState is export (
   DUCKDB_SUCCESS => 0,
   DUCKDB_ERROR => 1,
@@ -93,8 +94,11 @@ enum DuckDBType is export (
   DUCKDB_TYPE_TIME_TZ => 30,          # duckdb_time_tz
   DUCKDB_TYPE_TIMESTAMP_TZ => 31,     # duckdb_timestamp
   DUCKDB_TYPE_ANY => 34,              # any type
-  DUCKDB_TYPE_VARINT => 35,           # duckdb_varint
+  DUCKDB_TYPE_BIGNUM => 35,           # duckdb_varint / bignum
   DUCKDB_TYPE_SQLNULL => 36,          # SQLNULL type
+  DUCKDB_TYPE_STRING_LITERAL => 37,   # string literal
+  DUCKDB_TYPE_INTEGER_LITERAL => 38,  # integer literal
+  DUCKDB_TYPE_TIME_NS => 39,          # duckdb_time_ns, nanoseconds since 00:00:00
 );
 
 #| `duckdb_database` :
@@ -182,6 +186,16 @@ class DuckTime is repr('CStruct') is export {
   method DateTime {
     # $.micros is microseconds since 00:00:00
     DateTime.new($.micros / 1_000_000);
+  }
+}
+
+#| `duckdb_time_ns` :
+#| Time is stored as nanoseconds since 00:00:00
+class DuckTimeNS is repr('CStruct') is export {
+  has int64 $.nanos; # int64_t nanos;
+  #| cast to a raku DateTime
+  method DateTime {
+    DateTime.new($.nanos / 1_000_000_000);
   }
 }
 

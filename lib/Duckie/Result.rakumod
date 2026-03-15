@@ -224,6 +224,10 @@ multi method column-data(Int $c --> List) {
       my $values := nativecast(Pointer[DuckTime],$data);
       @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).DateTime }
     }
+    when DUCKDB_TYPE_TIME_NS {
+      my $values := nativecast(Pointer[DuckTimeNS],$data);
+      @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).DateTime }
+    }
     when | DUCKDB_TYPE_TIMESTAMP
          | DUCKDB_TYPE_TIMESTAMP_S
          | DUCKDB_TYPE_TIMESTAMP_MS

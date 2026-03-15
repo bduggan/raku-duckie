@@ -9,9 +9,9 @@ logger.add-tap: { diag .<level>.lc ~ ': ' ~ .<msg> }, :level(* >= DEBUG);
 my $db = Duckie.new;
 my $all-res = $db.query("select * from test_all_types()");
 is $all-res.row-count, 3, '3 rows in test';
-is $all-res.column-count, 53 | 54, '53 or 54 types in test';
+is $all-res.column-count, 53 | 54 | 55, '53, 54, or 55 types in test';
 my @cols = $all-res.column-names;
-ok @cols == 53 | 54, '53 or 54 names';
+ok @cols == 53 | 54 | 55, '53, 54, or 55 names';
 my $test-all = True;
 if $test-all {
   for 0..^+@cols -> $c {
