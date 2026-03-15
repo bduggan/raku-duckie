@@ -227,6 +227,9 @@ my constant NULL is export = Pointer;
 #| DUCKDB_API duckdb_string duckdb_value_string(duckdb_result *result, idx_t col, idx_t row);
 sub duckdb_value_string(Result $res, uint64 $col, uint64 $row) returns Str is native(libduckdb) is export { * }
 
+#| DUCKDB_API char *duckdb_value_varchar(duckdb_result *result, idx_t col, idx_t row);
+sub duckdb_value_varchar(Result $res, uint64 $col, uint64 $row) returns Str is native(libduckdb) is export { * }
+
 #| DUCKDB_API bool duckdb_value_boolean(duckdb_result *result, idx_t col, idx_t row);
 sub duckdb_value_boolean(Result $res, uint64 $col, uint64 $row) returns int32 is native(libduckdb) is export { * }
 
@@ -468,6 +471,15 @@ sub duckdb_data_chunk_set_size(DataChunk $chunk, uint64 $size) is native(libduck
 
 #| DUCKDB_API void *duckdb_vector_get_data(duckdb_vector vector);
 sub duckdb_vector_get_data(DuckVector $vec) returns Pointer is native(libduckdb) is export { * }
+
+#| DUCKDB_API uint64_t *duckdb_vector_get_validity(duckdb_vector vector);
+sub duckdb_vector_get_validity(DuckVector $vec) returns Pointer is native(libduckdb) is export { * }
+
+#| DUCKDB_API const char *duckdb_string_t_data(duckdb_string_t *string);
+sub duckdb_string_t_data(Pointer $s) returns Pointer is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_destroy_data_chunk(duckdb_data_chunk *chunk);
+sub duckdb_destroy_data_chunk(DataChunk $chunk is rw) is native(libduckdb) is export { * }
 
 #| DUCKDB_API void duckdb_vector_assign_string_element(duckdb_vector vector, idx_t index, const char *str);
 sub duckdb_vector_assign_string_element(DuckVector $vec, uint64 $idx, Str $str) is native(libduckdb) is export { * }

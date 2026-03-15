@@ -1,0 +1,242 @@
+#!/usr/bin/env raku
+
+use Duckie;
+use Test;
+
+my $db = Duckie.new;
+
+sub val($sql) { $db.query($sql).column-data(0)[0] }
+sub ctype($sql) { $db.query($sql).column-type('v') }
+
+my $duckdb-version = $db.query("select version()").column-data(0)[0];
+my ($major, $minor) = $duckdb-version.comb(/\d+/)[0, 1]».Int;
+my $has-time-ns = $major > 1 || ($major == 1 && $minor >= 5);
+
+# BOOLEAN
+is ctype('select true::boolean as v'), 'BOOLEAN', 'boolean col type';
+ok val('select true::boolean as v') ~~ Bool, 'boolean is Bool';
+ok val('select true::boolean as v'), 'boolean true';
+ok !val('select false::boolean as v'), 'boolean false';
+ok !defined(val('select null::boolean as v')), 'null boolean';
+
+# TINYINT
+is ctype('select 0::tinyint as v'), 'TINYINT', 'tinyint col type';
+is val('select (-128)::tinyint as v'), -128, 'tinyint min';
+is val('select 127::tinyint as v'), 127, 'tinyint max';
+ok !defined(val('select null::tinyint as v')), 'null tinyint';
+
+# SMALLINT
+is ctype('select 0::smallint as v'), 'SMALLINT', 'smallint col type';
+is val('select (-32768)::smallint as v'), -32768, 'smallint min';
+is val('select 32767::smallint as v'), 32767, 'smallint max';
+ok !defined(val('select null::smallint as v')), 'null smallint';
+
+# INTEGER
+is ctype('select 0::integer as v'), 'INTEGER', 'integer col type';
+is val('select (-2147483648)::integer as v'), -2147483648, 'integer min';
+is val('select 2147483647::integer as v'), 2147483647, 'integer max';
+ok !defined(val('select null::integer as v')), 'null integer';
+
+# BIGINT
+is ctype('select 0::bigint as v'), 'BIGINT', 'bigint col type';
+is val('select (-9223372036854775807-1)::bigint as v'), -9223372036854775808, 'bigint min';
+is val('select 9223372036854775807::bigint as v'), 9223372036854775807, 'bigint max';
+ok !defined(val('select null::bigint as v')), 'null bigint';
+
+# UTINYINT
+is ctype('select 0::utinyint as v'), 'UTINYINT', 'utinyint col type';
+is val('select 0::utinyint as v'), 0, 'utinyint 0';
+is val('select 255::utinyint as v'), 255, 'utinyint 255';
+ok !defined(val('select null::utinyint as v')), 'null utinyint';
+
+# USMALLINT
+is ctype('select 0::usmallint as v'), 'USMALLINT', 'usmallint col type';
+is val('select 0::usmallint as v'), 0, 'usmallint 0';
+is val('select 65535::usmallint as v'), 65535, 'usmallint max';
+ok !defined(val('select null::usmallint as v')), 'null usmallint';
+
+# UINTEGER
+is ctype('select 0::uinteger as v'), 'UINTEGER', 'uinteger col type';
+is val('select 0::uinteger as v'), 0, 'uinteger 0';
+is val('select 4294967295::uinteger as v'), 4294967295, 'uinteger max';
+ok !defined(val('select null::uinteger as v')), 'null uinteger';
+
+# UBIGINT (stored as signed int64 internally; values > INT64_MAX appear negative)
+is ctype('select 0::ubigint as v'), 'UBIGINT', 'ubigint col type';
+is val('select 0::ubigint as v'), 0, 'ubigint 0';
+is val('select 42::ubigint as v'), 42, 'ubigint 42';
+ok !defined(val('select null::ubigint as v')), 'null ubigint';
+
+# FLOAT
+is ctype('select 1.5::float as v'), 'FLOAT', 'float col type';
+ok val('select 1.5::float as v') ~~ Numeric, 'float is Numeric';
+ok abs(val('select 1.5::float as v') - 1.5) < 0.001, 'float ≈ 1.5';
+ok !defined(val('select null::float as v')), 'null float';
+
+# DOUBLE
+is ctype('select 1.5::double as v'), 'DOUBLE', 'double col type';
+ok val('select 1.5::double as v') ~~ Numeric, 'double is Numeric';
+ok val('select 1.5::double as v') == 1.5e0, 'double == 1.5';
+ok !defined(val('select null::double as v')), 'null double';
+
+# HUGEINT
+is ctype('select 0::hugeint as v'), 'HUGEINT', 'hugeint col type';
+is val('select 170141183460469231731687303715884105727::hugeint as v'),
+   170141183460469231731687303715884105727, 'hugeint max';
+is val('select (-170141183460469231731687303715884105727-1)::hugeint as v'),
+   -170141183460469231731687303715884105728, 'hugeint min';
+ok !defined(val('select null::hugeint as v')), 'null hugeint';
+
+# UHUGEINT
+is ctype('select 0::uhugeint as v'), 'UHUGEINT', 'uhugeint col type';
+is val('select 0::uhugeint as v'), 0, 'uhugeint 0';
+is val('select 340282366920938463463374607431768211455::uhugeint as v'),
+   340282366920938463463374607431768211455, 'uhugeint max';
+ok !defined(val('select null::uhugeint as v')), 'null uhugeint';
+
+# VARCHAR
+is ctype("select 'hello'::varchar as v"), 'VARCHAR', 'varchar col type';
+ok val("select 'hello'::varchar as v") ~~ Str, 'varchar is Str';
+is val("select 'hello'::varchar as v"), 'hello', 'varchar value';
+ok !defined(val('select null::varchar as v')), 'null varchar';
+
+# BLOB
+is ctype("select 'hello'::blob as v"), 'BLOB', 'blob col type';
+ok val("select 'hello'::blob as v") ~~ Buf, 'blob is Buf';
+is val("select 'hello'::blob as v").decode, 'hello', 'blob value';
+ok !defined(val('select null::blob as v')), 'null blob';
+
+# DECIMAL - narrow precision (INT16 internal)
+is ctype('select 9.9::decimal(4,1) as v'), 'DECIMAL', 'decimal(4,1) col type';
+is val('select 9.9::decimal(4,1) as v'), 9.9, 'decimal(4,1) value';
+ok val('select 9.9::decimal(4,1) as v') ~~ Rat, 'decimal(4,1) is Rat';
+ok !defined(val('select null::decimal(4,1) as v')), 'null decimal(4,1)';
+
+# DECIMAL - mid precision (INT64 internal)
+is val('select 123.456::decimal(10,3) as v'), 123.456, 'decimal(10,3) value';
+
+# DECIMAL - wide precision (HUGEINT internal)
+is val('select 1.0000000001::decimal(38,10) as v'), 1.0000000001, 'decimal(38,10) value';
+
+# TIMESTAMP (microseconds)
+is ctype("select '2024-01-15 12:30:45'::timestamp as v"), 'TIMESTAMP', 'timestamp col type';
+my $ts = val("select '2024-01-15 12:30:45'::timestamp as v");
+ok $ts ~~ DateTime, 'timestamp is DateTime';
+is $ts.year, 2024, 'timestamp year';
+is $ts.month, 1, 'timestamp month';
+is $ts.day, 15, 'timestamp day';
+is $ts.hour, 12, 'timestamp hour';
+ok !defined(val('select null::timestamp as v')), 'null timestamp';
+
+# TIMESTAMP_S (seconds)
+is ctype("select '2024-01-15 12:30:45'::timestamp_s as v"), 'TIMESTAMP_S', 'timestamp_s col type';
+my $ts_s = val("select '2024-01-15 12:30:45'::timestamp_s as v");
+ok $ts_s ~~ DateTime, 'timestamp_s is DateTime';
+is $ts_s.year, 2024, 'timestamp_s year';
+ok !defined(val('select null::timestamp_s as v')), 'null timestamp_s';
+
+# TIMESTAMP_MS (milliseconds)
+is ctype("select '2024-01-15 12:30:45.123'::timestamp_ms as v"), 'TIMESTAMP_MS', 'timestamp_ms col type';
+my $ts_ms = val("select '2024-01-15 12:30:45.123'::timestamp_ms as v");
+ok $ts_ms ~~ DateTime, 'timestamp_ms is DateTime';
+is $ts_ms.year, 2024, 'timestamp_ms year';
+ok !defined(val('select null::timestamp_ms as v')), 'null timestamp_ms';
+
+# TIMESTAMP_NS (nanoseconds)
+is ctype("select '2024-01-15 12:30:45.123456'::timestamp_ns as v"), 'TIMESTAMP_NS', 'timestamp_ns col type';
+my $ts_ns = val("select '2024-01-15 12:30:45.123456'::timestamp_ns as v");
+ok $ts_ns ~~ DateTime, 'timestamp_ns is DateTime';
+is $ts_ns.year, 2024, 'timestamp_ns year';
+ok !defined(val('select null::timestamp_ns as v')), 'null timestamp_ns';
+
+# DATE
+is ctype("select '2024-01-15'::date as v"), 'DATE', 'date col type';
+my $d = val("select '2024-01-15'::date as v");
+ok $d ~~ Date, 'date is Date';
+is $d.year, 2024, 'date year';
+is $d.month, 1, 'date month';
+is $d.day, 15, 'date day';
+ok !defined(val('select null::date as v')), 'null date';
+
+# TIME (microseconds since 00:00:00, returned as DateTime)
+is ctype("select '12:30:45'::time as v"), 'TIME', 'time col type';
+my $t = val("select '12:30:45'::time as v");
+ok $t ~~ DateTime, 'time is DateTime';
+is $t.hour, 12, 'time hour';
+is $t.minute, 30, 'time minute';
+is $t.second, 45, 'time second';
+ok !defined(val('select null::time as v')), 'null time';
+
+# TIME_NS (nanoseconds since 00:00:00, returned as DateTime) - DuckDB >= 1.5.0 only
+if $has-time-ns {
+    is ctype("select '12:30:45'::time_ns as v"), 'TIME_NS', 'time_ns col type';
+    my $tns = val("select '12:30:45'::time_ns as v");
+    ok $tns ~~ DateTime, 'time_ns is DateTime';
+    is $tns.hour, 12, 'time_ns hour';
+    ok !defined(val('select null::time_ns as v')), 'null time_ns';
+} else {
+    skip 'time_ns not available in DuckDB ' ~ $duckdb-version, 4;
+}
+
+# TIME_TZ (no deprecated API support; returns Nil)
+is ctype("select '12:30:45+00'::timetz as v"), 'TIME_TZ', 'timetz col type';
+ok !defined(val("select '12:30:45+00'::timetz as v")), 'timetz returns Nil (deprecated API unsupported)';
+
+# TIMESTAMP_TZ (stored as timestamp_t, timezone dropped, returned as DateTime)
+is ctype("select '2024-01-15 12:30:45+00'::timestamptz as v"), 'TIMESTAMP_TZ', 'timestamptz col type';
+my $tstz = val("select '2024-01-15 12:30:45+00'::timestamptz as v");
+ok $tstz ~~ DateTime, 'timestamptz is DateTime';
+is $tstz.year, 2024, 'timestamptz year';
+ok !defined(val('select null::timestamptz as v')), 'null timestamptz';
+
+# BIGNUM / VARINT
+is ctype('select 99999999999999999999::varint as v'), 'BIGNUM', 'varint col type';
+todo 'bignum value retrieval not yet implemented via deprecated API';
+my $bn = val('select 99999999999999999999::varint as v');
+todo 'bignum value retrieval not yet implemented via deprecated API';
+ok $bn ~~ Int, 'bignum is Int';
+todo 'bignum value retrieval not yet implemented via deprecated API';
+is $bn, 99999999999999999999, 'bignum value';
+ok !defined(val('select null::varint as v')), 'null bignum';
+
+# --- Types not yet supported (column-data returns Failure) ---
+
+# INTERVAL
+is ctype("select interval '1 day' as v"), 'INTERVAL', 'interval col type';
+ok val("select interval '1 day' as v") ~~ Failure, 'interval returns Failure';
+
+# UUID
+is ctype("select '550e8400-e29b-41d4-a716-446655440000'::uuid as v"), 'UUID', 'uuid col type';
+ok val("select '550e8400-e29b-41d4-a716-446655440000'::uuid as v") ~~ Failure, 'uuid returns Failure';
+
+# BIT
+is ctype("select '10101'::bit as v"), 'BIT', 'bit col type';
+ok val("select '10101'::bit as v") ~~ Failure, 'bit returns Failure';
+
+# ENUM
+$db.query("create type my_mood as enum ('happy', 'sad', 'neutral')");
+is ctype("select 'happy'::my_mood as v"), 'ENUM', 'enum col type';
+ok val("select 'happy'::my_mood as v") ~~ Failure, 'enum returns Failure';
+
+# LIST
+is ctype('select [1, 2, 3] as v'), 'LIST', 'list col type';
+ok val('select [1, 2, 3] as v') ~~ Failure, 'list returns Failure';
+
+# STRUCT
+is ctype(q[select {a: 1, b: 'hello'} as v]), 'STRUCT', 'struct col type';
+ok val(q[select {a: 1, b: 'hello'} as v]) ~~ Failure, 'struct returns Failure';
+
+# MAP
+is ctype(q[select map([1, 2], ['a', 'b']) as v]), 'MAP', 'map col type';
+ok val(q[select map([1, 2], ['a', 'b']) as v]) ~~ Failure, 'map returns Failure';
+
+# ARRAY (fixed-size array)
+is ctype('select [1, 2, 3]::int[3] as v'), 'ARRAY', 'array col type';
+ok val('select [1, 2, 3]::int[3] as v') ~~ Failure, 'array returns Failure';
+
+# UNION
+$db.query('create type my_num as union (i int, f float)');
+is ctype('select union_value(i := 42)::my_num as v'), 'UNION', 'union col type';
+ok val('select union_value(i := 42)::my_num as v') ~~ Failure, 'union returns Failure';
+
+done-testing;
