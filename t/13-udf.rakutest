@@ -1,0 +1,21 @@
+#!/usr/bin/env raku
+
+use Duckie;
+use Test;
+
+plan 1;
+
+my $db = Duckie.new;
+
+$db.register-scalar-function:
+  'addem',
+  params => <INTEGER INTEGER>,
+  returns => 'INTEGER',
+  function => sub ($a, $b) {
+    $a + $b
+  };
+
+my $result = $db.query('SELECT addem(2, 3) AS result').rows[0];
+is $result<result>, 5, 'scalar UDF works';
+
+done-testing;
