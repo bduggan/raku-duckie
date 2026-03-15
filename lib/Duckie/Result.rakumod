@@ -113,23 +113,9 @@ multi method column-data(Int $c --> List) {
       };
       return @ret;
     }
-    when DUCKDB_TYPE_TIMESTAMP_TZ {
-      @ret = (^$count).map: {
-        if $null-mask[$_] { Nil }
-        else {
-          my $s = duckdb_value_string($!res, $c, $_);
-          $s.defined ?? do {
-            $s .= subst(' ', 'T');
-            $s .= subst(/ (<[+-]>) (\d\d) (\d\d)? $ /, { "$0$1:" ~ ($2 // '00') });
-            try DateTime.new($s) // $s
-          } !! Nil
-        }
-      };
-      return @ret;
-    }
   }
 
-  without $data {
+  if !defined($data) && !defined($null-mask) {
     warning "no data for column $c ({self.column-names[ $c ]}) of type { %types{$column-type} }";
     my @ret = (^$count).map: { Nil }
     return @ret;
@@ -231,6 +217,7 @@ multi method column-data(Int $c --> List) {
     when | DUCKDB_TYPE_TIMESTAMP
          | DUCKDB_TYPE_TIMESTAMP_S
          | DUCKDB_TYPE_TIMESTAMP_MS
+         | DUCKDB_TYPE_TIMESTAMP_TZ
          | DUCKDB_TYPE_TIMESTAMP_NS {
       my $values = nativecast(Pointer[DuckTimestamp],$data);
       @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).DateTime }
@@ -242,6 +229,11 @@ multi method column-data(Int $c --> List) {
     when DUCKDB_TYPE_DOUBLE {
       my $values = nativecast(Pointer[num64],$data);
       @ret = (^$count).map: { $null-mask[$_] ?? Nil !! val-at($values,$_).Numeric };
+    }
+    when DUCKDB_TYPE_BIGNUM {
+      @ret = (^$count).map: {
+        $null-mask[$_] ?? Nil !! (duckdb_value_string($!res, $c, $_) // Nil).andthen: { .Int }
+      };
     }
     when DUCKDB_TYPE_INVALID {
       fail "invalid column $c";
