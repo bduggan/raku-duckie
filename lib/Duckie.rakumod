@@ -644,6 +644,9 @@ $db.query("SELECT raku_upper('hello world')").column-data(0);
 =end pod
 
 method register-scalar-function(Str $name, :@params!, :$returns!, :&function!) {
+  my $ver = Version.new(duckdb_library_version().subst(/^'v'/, ''));
+  die "DuckDB scalar UDFs require library version >= 1.1.0 (installed: $ver)"
+    if $ver before v1.1.0;
   self!ensure-single-threaded;
   @_sf_registry.push: _ScalarFuncDef.new(
       :$name,
@@ -653,8 +656,9 @@ method register-scalar-function(Str $name, :@params!, :$returns!, :&function!) {
   );
   my $def-id = @_sf_registry.elems - 1;
 
-  my $sf = duckdb_create_scalar_function();
-  LEAVE duckdb_destroy_scalar_function($sf);
+  my $sf;
+  LEAVE duckdb_destroy_scalar_function($sf) if $sf.defined;
+  $sf = duckdb_create_scalar_function();
 
   duckdb_scalar_function_set_name($sf, $name);
   duckdb_scalar_function_set_extra_info($sf, Pointer.new($def-id), Pointer);

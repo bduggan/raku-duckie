@@ -52,6 +52,9 @@ sub libduckdb {
   'duckdb'
 };
 
+# Scalar UDF support was added in libduckdb 1.1.0
+sub libduckdb_1_1 { ('duckdb', v1.1) };
+
 enum DuckDBState is export (
   DUCKDB_SUCCESS => 0,
   DUCKDB_ERROR => 1,
@@ -482,33 +485,33 @@ sub duckdb_get_int64(DuckValue $val) returns int64 is native(libduckdb) is expor
 class ScalarFunction is repr('CPointer') is export { }
 
 #| DUCKDB_API duckdb_scalar_function duckdb_create_scalar_function();
-sub duckdb_create_scalar_function() returns ScalarFunction is native(libduckdb) is export { * }
+sub duckdb_create_scalar_function() returns ScalarFunction is native(libduckdb_1_1) is export { * }
 
 #| DUCKDB_API void duckdb_destroy_scalar_function(duckdb_scalar_function *scalar_function);
-sub duckdb_destroy_scalar_function(ScalarFunction $sf is rw) is native(libduckdb) is export { * }
+sub duckdb_destroy_scalar_function(ScalarFunction $sf is rw) is native(libduckdb_1_1) is export { * }
 
 #| DUCKDB_API void duckdb_scalar_function_set_name(duckdb_scalar_function scalar_function, const char *name);
-sub duckdb_scalar_function_set_name(ScalarFunction $sf, Str $name) is native(libduckdb) is export { * }
+sub duckdb_scalar_function_set_name(ScalarFunction $sf, Str $name) is native(libduckdb_1_1) is export { * }
 
 #| DUCKDB_API void duckdb_scalar_function_add_parameter(duckdb_scalar_function scalar_function, duckdb_logical_type type);
-sub duckdb_scalar_function_add_parameter(ScalarFunction $sf, LogicalType $type) is native(libduckdb) is export { * }
+sub duckdb_scalar_function_add_parameter(ScalarFunction $sf, LogicalType $type) is native(libduckdb_1_1) is export { * }
 
 #| DUCKDB_API void duckdb_scalar_function_set_return_type(duckdb_scalar_function scalar_function, duckdb_logical_type type);
-sub duckdb_scalar_function_set_return_type(ScalarFunction $sf, LogicalType $type) is native(libduckdb) is export { * }
+sub duckdb_scalar_function_set_return_type(ScalarFunction $sf, LogicalType $type) is native(libduckdb_1_1) is export { * }
 
 #| DUCKDB_API void duckdb_scalar_function_set_extra_info(duckdb_scalar_function scalar_function, void *extra_info, duckdb_delete_callback_t destroy);
-sub duckdb_scalar_function_set_extra_info(ScalarFunction $sf, Pointer $extra, Pointer $destroy) is native(libduckdb) is export { * }
+sub duckdb_scalar_function_set_extra_info(ScalarFunction $sf, Pointer $extra, Pointer $destroy) is native(libduckdb_1_1) is export { * }
 
 #| DUCKDB_API void duckdb_scalar_function_set_function(duckdb_scalar_function scalar_function, duckdb_scalar_function_t function);
 #| The callback signature is: void f(duckdb_function_info info, duckdb_data_chunk input, duckdb_vector output)
-sub duckdb_scalar_function_set_function(ScalarFunction $sf, &callback (FunctionInfo, DataChunk, DuckVector)) is native(libduckdb) is export { * }
+sub duckdb_scalar_function_set_function(ScalarFunction $sf, &callback (FunctionInfo, DataChunk, DuckVector)) is native(libduckdb_1_1) is export { * }
 
 #| DUCKDB_API duckdb_state duckdb_register_scalar_function(duckdb_connection con, duckdb_scalar_function scalar_function);
-sub duckdb_register_scalar_function(Connection $conn, ScalarFunction $sf) returns int32 is native(libduckdb) is export { * }
+sub duckdb_register_scalar_function(Connection $conn, ScalarFunction $sf) returns int32 is native(libduckdb_1_1) is export { * }
 
 #| DUCKDB_API void *duckdb_scalar_function_get_extra_info(duckdb_function_info info);
-sub duckdb_scalar_function_get_extra_info(FunctionInfo $info) returns Pointer is native(libduckdb) is export { * }
+sub duckdb_scalar_function_get_extra_info(FunctionInfo $info) returns Pointer is native(libduckdb_1_1) is export { * }
 
 #| DUCKDB_API void duckdb_scalar_function_set_error(duckdb_function_info info, const char *error);
-sub duckdb_scalar_function_set_error(FunctionInfo $info, Str $error) is native(libduckdb) is export { * }
+sub duckdb_scalar_function_set_error(FunctionInfo $info, Str $error) is native(libduckdb_1_1) is export { * }
 
