@@ -129,7 +129,7 @@ multi method column-data(Int $c --> List) {
     }
   }
 
-  without $data {
+  if !defined($data) && !defined($null-mask) {
     warning "no data for column $c ({self.column-names[ $c ]}) of type { %types{$column-type} }";
     my @ret = (^$count).map: { Nil }
     return @ret;
