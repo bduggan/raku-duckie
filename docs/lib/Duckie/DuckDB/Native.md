@@ -106,6 +106,19 @@ method DateTime() returns Mu
 
 cast to a raku DateTime
 
+class DuckDB::Native::DuckTimeNS
+--------------------------------
+
+`duckdb_time_ns` : Time is stored as nanoseconds since 00:00:00
+
+### method DateTime
+
+```raku
+method DateTime() returns Mu
+```
+
+cast to a raku DateTime
+
 class DuckDB::Native::DuckTimestamp
 -----------------------------------
 

@@ -66,6 +66,8 @@ If an argument to `use Duckie` is provided, a new `Duckie` object is created and
     use Duckie '$db';           # creates and exports "$db"
     use Duckie '$db', '-debug'; # creates and exports "$db" with debug output
 
+By default, duckdb-version is exported, so `duckdb-version()` is always available.
+
     use Duckie 'db';
     db.query("select 1 as the_loneliest_number").column-data(0);
 
@@ -164,6 +166,37 @@ Register a user-defined scalar function that calls a Raku subroutine once per in
     );
     $db.query("SELECT raku_upper('hello world')").column-data(0);
     # ['HELLO WORLD']
+
+### method register-raku-sub
+
+    method register-raku-sub(&function) returns Duckie
+
+Register a named Raku subroutine as a DuckDB scalar UDF, inferring the SQL parameter and return types from the subroutine's type annotations.
+
+The subroutine must:
+
+  * have a name (i.e. not be an anonymous `sub`)
+
+  * have typed parameters and a typed return value
+
+Supported Raku-to-SQL type mappings:
+
+<table class="pod-table">
+<thead><tr>
+<th>Raku type</th> <th>DuckDB type</th>
+</tr></thead>
+<tbody>
+<tr> <td>Int</td> <td>INTEGER</td> </tr> <tr> <td>Str</td> <td>VARCHAR</td> </tr> <tr> <td>Num</td> <td>DOUBLE</td> </tr> <tr> <td>Bool</td> <td>BOOLEAN</td> </tr>
+</tbody>
+</table>
+
+Unannotated or unrecognised types default to `VARCHAR`.
+
+    sub double-it(Int $n --> Int) { $n * 2 }
+    $db.register-raku-sub(&double-it);
+    # Raku hyphens are converted to underscores for SQL:
+    $db.query('SELECT double_it(21)').column-data(0);
+    # [42]
 
 ### method DESTROY
 

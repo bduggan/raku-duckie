@@ -3,7 +3,6 @@ use Duckie::Result;
 use Log::Async;
 use NativeCall;
 
-#| Returns the DuckDB library version as a Version object.
 sub duckdb-version() is export {
   Version.new(duckdb_library_version().subst(/^'v'/, ''))
 }
@@ -381,6 +380,8 @@ created and returned.  Also "-debug" will enable debug output.  e.g.
   use Duckie;                 # no exports
   use Duckie '$db';           # creates and exports "$db"
   use Duckie '$db', '-debug'; # creates and exports "$db" with debug output
+
+By default, duckdb-version is exported, so C<duckdb-version()> is always available.
 
 =begin code
 
