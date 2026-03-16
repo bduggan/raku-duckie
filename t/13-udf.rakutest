@@ -7,6 +7,7 @@ use Test;
 plan 1;
 
 my $lib-ver = Version.new(duckdb_library_version().subst(/^'v'/, ''));
+diag "version of libduckdb: $lib-ver";
 my $db = Duckie.new;
 
 if $lib-ver before v1.1.0 {

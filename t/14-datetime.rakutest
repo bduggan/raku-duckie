@@ -1,0 +1,69 @@
+#!/usr/bin/env raku
+
+use Test;
+use Duckie;
+
+my $db = Duckie.new;
+
+# TIMESTAMP_TZ - duckdb_column_data returns valid data for this type in DuckDB 1.5.0.
+# It is stored internally as duckdb_timestamp (int64 microseconds since epoch, UTC).
+
+{
+  my $r = $db.query("select TIMESTAMPTZ '2024-06-15 12:34:56+00' as ts");
+  is $r.column-type('ts'), 'TIMESTAMP_TZ', 'timestamp_tz column type';
+  my $ts = $r.column-data('ts')[0];
+  ok $ts ~~ DateTime, 'timestamp_tz returns DateTime';
+  is $ts.year,   2024, 'year';
+  is $ts.month,     6, 'month';
+  is $ts.day,      15, 'day';
+  is $ts.hour,     12, 'hour';
+  is $ts.minute,   34, 'minute';
+  is $ts.second,   56, 'second';
+}
+
+{
+  # DuckDB stores TIMESTAMPTZ in UTC; +06:00 input is shifted back 6h
+  my $ts = $db.query("select TIMESTAMPTZ '2024-06-15 12:00:00+06:00' as ts").column-data('ts')[0];
+  ok $ts ~~ DateTime, 'timestamp_tz with positive offset converts to UTC';
+  is $ts.hour, 6, 'hour (12 - 6 = 6 UTC)';
+  is $ts.minute, 0, 'minute';
+}
+
+{
+  # Negative offset
+  my $ts = $db.query("select TIMESTAMPTZ '2024-06-15 18:30:00-04:00' as ts").column-data('ts')[0];
+  ok $ts ~~ DateTime, 'timestamp_tz with negative offset';
+  is $ts.hour, 22, 'hour (18:30 + 4h = 22:30 UTC)';
+  is $ts.minute, 30, 'minute';
+}
+
+{
+  # Epoch
+  my $ts = $db.query("select TIMESTAMPTZ '1970-01-01 00:00:00+00' as ts").column-data('ts')[0];
+  ok $ts ~~ DateTime, 'epoch timestamp_tz';
+  is $ts.posix, 0, 'epoch is posix 0';
+}
+
+{
+  my $ts = $db.query("select NULL::TIMESTAMPTZ as ts").column-data('ts')[0];
+  ok !$ts.defined, 'null timestamp_tz is Nil';
+}
+
+# Multiple rows of TIMESTAMP_TZ
+{
+  my $r = $db.query(q:to/SQL/);
+    select TIMESTAMPTZ '2000-01-01 00:00:00+00' as ts
+    union all
+    select TIMESTAMPTZ '2000-07-04 18:30:00-04:00'
+    union all
+    select NULL::TIMESTAMPTZ
+    SQL
+
+  my @ts = $r.column-data('ts');
+  is @ts.elems, 3, '3 rows';
+  is @ts[0], '2000-01-01T00:00:00Z', 'row 0';
+  is @ts[1], '2000-07-04T22:30:00Z', 'row 1 (18:30 -04:00 = 22:30 UTC)';
+  ok !@ts[2].defined,                'row 2 null';
+}
+
+done-testing;

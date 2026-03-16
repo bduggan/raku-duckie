@@ -199,6 +199,7 @@ class DuckTimeNS is repr('CStruct') is export {
   }
 }
 
+
 #| `duckdb_timestamp` :
 #| Timestamps are stored as microseconds since 1970-01-01
 class DuckTimestamp is repr('CStruct') is export {
