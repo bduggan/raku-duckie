@@ -689,6 +689,63 @@ method register-scalar-function(Str $name, :@params!, :$returns!, :&function!) {
 
 =begin pod
 
+=head3 method register-raku-sub
+
+=begin code
+
+method register-raku-sub(&function) returns Duckie
+
+=end code
+
+Register a named Raku subroutine as a DuckDB scalar UDF, inferring the SQL
+parameter and return types from the subroutine's type annotations.
+
+The subroutine must:
+
+=item have a name (i.e. not be an anonymous C<sub>)
+=item have typed parameters and a typed return value
+
+Supported Raku-to-SQL type mappings:
+
+=begin table
+Raku type | DuckDB type
+----------|------------
+Int       | INTEGER
+Str       | VARCHAR
+Num       | DOUBLE
+Bool      | BOOLEAN
+=end table
+
+Unannotated or unrecognised types default to C<VARCHAR>.
+
+=begin code
+
+sub double-it(Int $n --> Int) { $n * 2 }
+$db.register-raku-sub(&double-it);
+# Raku hyphens are converted to underscores for SQL:
+$db.query('SELECT double_it(21)').column-data(0);
+# [42]
+
+=end code
+
+=end pod
+
+my constant %RAKU2DUCKIE = (
+    'Int'  => 'INTEGER',
+    'Str'  => 'VARCHAR',
+    'Num'  => 'DOUBLE',
+    'Bool' => 'BOOLEAN',
+);
+
+method register-raku-sub(&function) {
+  my $name    = &function.name.subst('-', '_', :g);
+  my @params  = &function.signature.params.map: { %RAKU2DUCKIE{.type.^name} // 'VARCHAR' };
+  my $returns = %RAKU2DUCKIE{&function.signature.returns.^name} // 'VARCHAR';
+  self.register-scalar-function: $name, :@params, :$returns, :&function;
+}
+
+=begin pod
+
 =head3 method DESTROY
 
 Close the database connection and free resources.

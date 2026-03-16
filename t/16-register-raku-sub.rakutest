@@ -1,0 +1,39 @@
+#!/usr/bin/env raku
+
+use Duckie;
+use Duckie::DuckDB::Native;
+use Test;
+
+plan 4;
+
+my $lib-ver = duckdb-version();
+diag "version of libduckdb: $lib-ver";
+
+if $lib-ver before v1.1.0 {
+  skip-rest "register-raku-sub requires DuckDB >= 1.1.0 (installed: $lib-ver)";
+  exit;
+}
+
+my $db = Duckie.new;
+
+sub double-it(Int $n --> Int) { $n * 2 }
+$db.register-raku-sub(&double-it);
+is $db.query('SELECT double_it(21) AS r').rows[0]<r>, 42,
+  'Int → INTEGER: double-it(21) = 42';
+
+sub shout(Str $s --> Str) { $s.uc ~ '!' }
+$db.register-raku-sub(&shout);
+is $db.query("SELECT shout('hello') AS r").rows[0]<r>, 'HELLO!',
+  'Str → VARCHAR: shout works';
+
+sub add-two(Int $x, Int $y --> Int) { $x + $y }
+$db.register-raku-sub(&add-two);
+is $db.query('SELECT add_two(10, 32) AS r').rows[0]<r>, 42,
+  'multi-param Int function: add-two(10,32) = 42';
+
+sub times-pi(Num $x --> Num) { $x * π }
+$db.register-raku-sub(&times-pi);
+my $got = $db.query('SELECT times_pi(1.0) AS r').rows[0]<r>;
+ok abs($got - π) < 1e-9, "Num → DOUBLE: times-pi(1.0) ≈ π";
+
+done-testing;
