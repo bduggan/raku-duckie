@@ -644,7 +644,7 @@ $db.query("SELECT raku_upper('hello world')").column-data(0);
 =end pod
 
 method register-scalar-function(Str $name, :@params!, :$returns!, :&function!) {
-  my $ver = Version.new(duckdb_library_version().subst(/^'v'/, ''));
+  my $ver = lib-version();
   die "DuckDB scalar UDFs require library version >= 1.1.0 (installed: $ver)"
     if $ver before v1.1.0;
   self!ensure-single-threaded;

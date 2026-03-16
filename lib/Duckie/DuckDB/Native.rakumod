@@ -255,6 +255,11 @@ sub duckdb_destroy_result(Result $res is rw) is native(libduckdb) is export { * 
 #| DUCKDB_API const char *duckdb_library_version();
 sub duckdb_library_version() returns Str is native(libduckdb) is export { * }
 
+#| Returns the DuckDB library version as a Version object.
+sub lib-version() is export {
+  Version.new(duckdb_library_version().subst(/^'v'/, ''))
+}
+
 #| DUCKDB_API idx_t duckdb_column_count(duckdb_result *result);
 sub duckdb_column_count(Result $res) returns uint64 is native(libduckdb) is export { * }
 

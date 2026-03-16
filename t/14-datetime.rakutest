@@ -2,11 +2,20 @@
 
 use Test;
 use Duckie;
+use Duckie::DuckDB::Native;
 
-my $db = Duckie.new;
+my $lib-ver = lib-version();
+diag "version of libduckdb: $lib-ver";
 
 # TIMESTAMP_TZ - duckdb_column_data returns valid data for this type in DuckDB 1.5.0.
 # It is stored internally as duckdb_timestamp (int64 microseconds since epoch, UTC).
+
+if $lib-ver before v1.5.0 {
+  skip-rest "timestamp_tz column data requires DuckDB >= 1.5.0 (installed: $lib-ver)";
+  exit;
+}
+
+my $db = Duckie.new;
 
 {
   my $r = $db.query("select TIMESTAMPTZ '2024-06-15 12:34:56+00' as ts");
