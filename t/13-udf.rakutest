@@ -6,7 +6,7 @@ use Test;
 
 plan 1;
 
-my $lib-ver = lib-version();
+my $lib-ver = duckdb-version();
 diag "version of libduckdb: $lib-ver";
 my $db = Duckie.new;
 

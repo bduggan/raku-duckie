@@ -3,6 +3,11 @@ use Duckie::Result;
 use Log::Async;
 use NativeCall;
 
+#| Returns the DuckDB library version as a Version object.
+sub duckdb-version() is export {
+  Version.new(duckdb_library_version().subst(/^'v'/, ''))
+}
+
 # ---------------------------------------------------------------------------
 # User-defined function registry
 #
@@ -419,6 +424,8 @@ submethod TWEAK {
   duckdb_connect($!dbh, $!conn) == +DUCKDB_SUCCESS or fail "Failed to connect to database";
 }
 
+method version() { duckdb-version() }
+
 =begin pod
 
 =head3 method query
@@ -644,7 +651,7 @@ $db.query("SELECT raku_upper('hello world')").column-data(0);
 =end pod
 
 method register-scalar-function(Str $name, :@params!, :$returns!, :&function!) {
-  my $ver = lib-version();
+  my $ver = duckdb-version();
   die "DuckDB scalar UDFs require library version >= 1.1.0 (installed: $ver)"
     if $ver before v1.1.0;
   self!ensure-single-threaded;

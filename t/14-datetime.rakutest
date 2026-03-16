@@ -6,7 +6,7 @@ use Duckie::DuckDB::Native;
 
 plan 21;
 
-my $lib-ver = lib-version();
+my $lib-ver = duckdb-version();
 diag "version of libduckdb: $lib-ver";
 
 # TIMESTAMP_TZ - duckdb_column_data returns valid data for this type in DuckDB 1.5.0.
