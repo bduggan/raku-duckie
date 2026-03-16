@@ -4,6 +4,8 @@ use Test;
 use Duckie;
 use Duckie::DuckDB::Native;
 
+plan 21;
+
 my $lib-ver = lib-version();
 diag "version of libduckdb: $lib-ver";
 
@@ -74,5 +76,3 @@ my $db = Duckie.new;
   is @ts[1], '2000-07-04T22:30:00Z', 'row 1 (18:30 -04:00 = 22:30 UTC)';
   ok !@ts[2].defined,                'row 2 null';
 }
-
-done-testing;
