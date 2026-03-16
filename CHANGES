@@ -1,3 +1,8 @@
+0.0.12 2026-03-16
+  - register-raku-sub
+  - check version
+  - update timestamp_tz
+
 0.0.11 2026-03-15
   - support duckdb 1.5.0 (#9)
   - support nano seconds, better udf support, and a better testing matrix
