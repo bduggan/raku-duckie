@@ -99,6 +99,9 @@ enum DuckDBType is export (
   DUCKDB_TYPE_STRING_LITERAL => 37,   # string literal
   DUCKDB_TYPE_INTEGER_LITERAL => 38,  # integer literal
   DUCKDB_TYPE_TIME_NS => 39,          # duckdb_time_ns, nanoseconds since 00:00:00
+  DUCKDB_TYPE_GEOMETRY => 40,         # GEOMETRY type, WKB blob
+  DUCKDB_TYPE_VARIANT => 41,          # VARIANT type
+  DUCKDB_TYPE_TIMESTAMP_TZ_NS => 42,  # duckdb_timestamp (nanoseconds)
 );
 
 #| `duckdb_database` :
