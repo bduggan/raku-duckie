@@ -1,3 +1,8 @@
+0.0.13 2026-10-14
+ - new types; geometry, variant, timestamp_tz_ns
+ - update CI
+ - chunk API for rows containing geometry types
+
 0.0.12 2026-03-16
   - register-raku-sub
   - check version
