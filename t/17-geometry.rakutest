@@ -1,0 +1,73 @@
+#!/usr/bin/env raku
+
+use Test;
+use Duckie;
+
+my $db = Duckie.new;
+
+unless $db.query('load spatial') || ($db.query('install spatial') && $db.query('load spatial')) {
+  plan :skip-all<spatial extension not available>;
+}
+
+# hex WKB (little endian) for POINT (1 2)
+my $point = '0101000000000000000000f03f0000000000000040';
+
+# --- Reading geometry ---
+
+with $db.query('select st_point(1, 2) as g') {
+  is .column-types[0], 'GEOMETRY', 'column type is GEOMETRY';
+  my $g = .column-data(0)[0];
+  isa-ok $g, Str, 'geometry is returned as a string';
+  is $g, $point, 'geometry is hex WKB';
+  is .rows[0]<g>, $point, 'geometry in rows';
+}
+
+with $db.query(q:to/SQL/) {
+  select st_geomfromgeojson('{"coordinates":[-75.189743,39.962082],"type":"Point"}') as g
+  SQL
+  my $g = .column-data(0)[0];
+  is $g, '010100000047e9d2bf24cc52c0ff08c38025fb4340', 'geometry from geojson';
+  is $g.chars, 42, 'point is 21 bytes of WKB';
+}
+
+with $db.query(q[select st_geomfromtext('LINESTRING (0 0, 1 1, 2 2)') as g]) {
+  my $g = .column-data(0)[0];
+  is $g.chars, 2 * (1 + 4 + 4 + 3 * 16), 'linestring WKB has the right size';
+  is $db.query('select st_astext(st_geomfromwkb(from_hex(?))) as t', $g).rows[0]<t>,
+     'LINESTRING (0 0, 1 1, 2 2)', 'WKB round trips';
+}
+
+# --- Null geometry ---
+
+with $db.query('select null::geometry as g') {
+  ok !defined(.column-data(0)[0]), 'null geometry returns Nil';
+}
+
+# --- Geometry alongside other types, across multiple chunks ---
+
+with $db.query(q:to/SQL/) {
+  select i,
+         i::varchar as short,
+         i::varchar || '-a-longer-string' as long,
+         (i / 4)::decimal(10,2) as d,
+         i % 2 = 0 as b,
+         case when i % 3 = 0 then null else st_point(i, 2) end as g,
+         '2024-01-02 03:04:05'::timestamp_s as ts
+  from range(5000) t(i)
+  order by i
+  SQL
+  my @rows = .rows;
+  is @rows.elems, 5000, 'all rows read';
+  is @rows[1]<i>, 1, 'integer column';
+  is @rows[1]<short>, '1', 'short (inlined) varchar column';
+  is @rows[4999]<long>, '4999-a-longer-string', 'long varchar column';
+  is @rows[1]<d>, 0.25, 'decimal column';
+  is @rows[2]<b>, True, 'boolean column';
+  is @rows[1]<ts>, DateTime.new('2024-01-02T03:04:05Z'), 'timestamp_s column';
+  is @rows[1]<g>, $point, 'geometry column';
+  ok !defined(@rows[3]<g>), 'null geometry in later rows';
+  is .column-data('g').grep(!*.defined).elems, 1667, 'nulls across chunks';
+  is .column-data('g')[4999].chars, 42, 'geometry in last chunk';
+}
+
+done-testing;
