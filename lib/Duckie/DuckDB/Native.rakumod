@@ -213,6 +213,15 @@ class DuckTimestamp is repr('CStruct') is export {
   }
 }
 
+#| `GEOMETRY` :
+#| Geometries are stored as WKB (well-known binary)
+class DuckWKB is export {
+  has Buf $.wkb;
+  method hex { $!wkb.list.fmt('%02x', '') }
+  method Str { self.hex }
+  method gist { "WKB<{ self.hex }>" }
+}
+
 enum DuckDBResultType (
   DUCKDB_RESULT_TYPE_INVALID => 0,
   DUCKDB_RESULT_TYPE_CHANGED_ROWS => 1,
@@ -474,6 +483,10 @@ sub duckdb_data_chunk_set_size(DataChunk $chunk, uint64 $size) is native(libduck
 #| DUCKDB_API void *duckdb_vector_get_data(duckdb_vector vector);
 sub duckdb_vector_get_data(DuckVector $vec) returns Pointer is native(libduckdb) is export { * }
 
+#| DUCKDB_API uint64_t *duckdb_vector_get_validity(duckdb_vector vector);
+#| Returns NULL when all values are valid.
+sub duckdb_vector_get_validity(DuckVector $vec) returns Pointer[uint64] is native(libduckdb) is export { * }
+
 #| DUCKDB_API void duckdb_vector_assign_string_element(duckdb_vector vector, idx_t index, const char *str);
 sub duckdb_vector_assign_string_element(DuckVector $vec, uint64 $idx, Str $str) is native(libduckdb) is export { * }
 
@@ -482,6 +495,9 @@ sub duckdb_vector_size() returns uint64 is native(libduckdb) is export { * }
 
 #| DUCKDB_API idx_t duckdb_data_chunk_get_size(duckdb_data_chunk chunk);
 sub duckdb_data_chunk_get_size(DataChunk $chunk) returns uint64 is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_destroy_data_chunk(duckdb_data_chunk *chunk);
+sub duckdb_destroy_data_chunk(DataChunk $chunk is rw) is native(libduckdb) is export { * }
 
 # --- Value API ---
 

@@ -46,6 +46,7 @@ logger.untapped-ok;
 has DuckDB::Native::Result $.res;
 has @!column-names;
 has @!all-column-data;
+has Bool $!use-chunks;
 
 #| Returns the names of the columns in the result set
 method column-names(--> List) {
@@ -88,6 +89,7 @@ multi method column-data(Str $name --> List) {
 
 #| Returns the data for the specified column number
 multi method column-data(Int $c --> List) {
+  return self!chunk-column-data($c) if self!use-chunks;
   my $data = duckdb_column_data($!res, $c);
   my $null-mask = nativecast(Pointer[int8], duckdb_nullmask_data($!res, $c));
   my $column-type = duckdb_column_type($!res, $c);
@@ -233,6 +235,100 @@ multi method column-data(Int $c --> List) {
     }
   }
   @ret;
+}
+
+#| The deprecated column API (duckdb_column_data) has no data for some
+#| types (e.g. GEOMETRY), and once a result has been read through the chunk
+#| API the deprecated API no longer works (and vice versa).  So results that
+#| contain any of those types are read entirely through the chunk API.
+method !use-chunks(--> Bool) {
+  $!use-chunks //= so (^self.column-count).grep: {
+    duckdb_column_type($!res, $_) == DUCKDB_TYPE_GEOMETRY
+  }
+}
+
+#| Returns the data for the specified column number, read from the result chunks.
+method !chunk-column-data(Int $c --> List) {
+  my $decode = self!chunk-decoder($c);
+  my @ret;
+  for ^duckdb_result_chunk_count($!res) -> $i {
+    my $chunk = duckdb_result_get_chunk($!res, $i);
+    my $vec = duckdb_data_chunk_get_vector($chunk, $c);
+    my $data = duckdb_vector_get_data($vec);
+    my $validity = duckdb_vector_get_validity($vec);
+    for ^duckdb_data_chunk_get_size($chunk) -> $row {
+      my $valid = !$validity || ($validity[$row div 64] +& (1 +< ($row % 64)));
+      @ret.push: $valid ?? $decode($data, $row) !! Nil;
+    }
+    duckdb_destroy_data_chunk($chunk);
+  }
+  @ret;
+}
+
+#| Read element $i of a vector stored as duckdb_string_t (16 bytes/element):
+#|   bytes 0-3  : uint32 length
+#|   if len ≤ 12: bytes 4-15 contain the inlined data
+#|   if len > 12: bytes 8-15 contain a pointer to the data
+sub string-t-at(Pointer $data, Int $i --> Buf) {
+  my $raw = nativecast(CArray[uint8], $data);
+  my $off = $i * 16;
+  my $len = [+|] (^4).map: { $raw[$off + $_] +< ($_ * 8) };
+  return Buf.new( (^$len).map({ $raw[$off + 4 + $_] }) ) if $len <= 12;
+  my $addr = [+|] (^8).map: { $raw[$off + 8 + $_] +< ($_ * 8) };
+  my $src = nativecast(CArray[uint8], Pointer.new($addr));
+  Buf.new( (^$len).map({ $src[$_] }) );
+}
+
+#| Returns a sub that converts element $i of a vector for column $c.
+method !chunk-decoder(Int $c --> Callable) {
+  my sub at(\T) { -> $data, $i { nativecast(CArray[T], $data)[$i] } }
+  my sub struct-at(\T) { -> $data, $i { nativecast(Pointer[T], $data).add($i).deref } }
+  my $column-type = duckdb_column_type($!res, $c);
+  given $column-type {
+    when DUCKDB_TYPE_BOOLEAN    { -> $d, $i { so at(uint8)($d, $i) } }
+    when DUCKDB_TYPE_TINYINT    { at(int8) }
+    when DUCKDB_TYPE_UTINYINT   { at(uint8) }
+    when DUCKDB_TYPE_SMALLINT   { at(int16) }
+    when DUCKDB_TYPE_USMALLINT  { at(uint16) }
+    when DUCKDB_TYPE_INTEGER    { at(int32) }
+    when DUCKDB_TYPE_UINTEGER   { at(uint32) }
+    when DUCKDB_TYPE_BIGINT     { at(int64) }
+    when DUCKDB_TYPE_UBIGINT    { at(uint64) }
+    when DUCKDB_TYPE_FLOAT      { at(num32) }
+    when DUCKDB_TYPE_DOUBLE     { at(num64) }
+    when DUCKDB_TYPE_HUGEINT    { -> $d, $i { struct-at(HugeInt)($d, $i).value } }
+    when DUCKDB_TYPE_UHUGEINT   { -> $d, $i { struct-at(UHugeInt)($d, $i).value } }
+    when DUCKDB_TYPE_VARCHAR    { -> $d, $i { string-t-at($d, $i).decode } }
+    when DUCKDB_TYPE_BLOB       { &string-t-at }
+    when DUCKDB_TYPE_GEOMETRY   { -> $d, $i { DuckWKB.new(wkb => string-t-at($d, $i)).hex } }
+    when DUCKDB_TYPE_DATE       { -> $d, $i { struct-at(DuckDate)($d, $i).Date } }
+    when DUCKDB_TYPE_TIME       { -> $d, $i { struct-at(DuckTime)($d, $i).DateTime } }
+    when DUCKDB_TYPE_TIME_NS    { -> $d, $i { struct-at(DuckTimeNS)($d, $i).DateTime } }
+    when DUCKDB_TYPE_TIMESTAMP | DUCKDB_TYPE_TIMESTAMP_TZ {
+      -> $d, $i { struct-at(DuckTimestamp)($d, $i).DateTime }
+    }
+    # vectors store these in their own units, not microseconds
+    when DUCKDB_TYPE_TIMESTAMP_S  { -> $d, $i { DuckTimestamp.new(micros => at(int64)($d, $i) * 1_000_000).DateTime } }
+    when DUCKDB_TYPE_TIMESTAMP_MS { -> $d, $i { DuckTimestamp.new(micros => at(int64)($d, $i) * 1_000).DateTime } }
+    when DUCKDB_TYPE_TIMESTAMP_NS { -> $d, $i { DuckTimestamp.new(micros => at(int64)($d, $i) div 1_000).DateTime } }
+    when DUCKDB_TYPE_DECIMAL {
+      my $logical-type = duckdb_column_logical_type($!res, $c);
+      my $scale = duckdb_decimal_scale($logical-type);
+      my $value = do given duckdb_decimal_internal_type($logical-type) {
+        when DUCKDB_TYPE_SMALLINT { at(int16) }
+        when DUCKDB_TYPE_INTEGER  { at(int32) }
+        when DUCKDB_TYPE_BIGINT   { at(int64) }
+        default                   { -> $d, $i { struct-at(HugeInt)($d, $i).value } }
+      }
+      -> $d, $i { Rat.new($value($d, $i), 10**$scale) }
+    }
+    default {
+      my %types = DuckDBType.enums.invert.Hash;
+      -> $, $ {
+        Failure.new("unsupported column type: $column-type ({%types{$column-type} }) for column $c ({self.column-names[$c]})");
+      }
+    }
+  }
 }
 
 method !maybe-read-all {
