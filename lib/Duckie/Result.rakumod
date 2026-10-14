@@ -324,9 +324,8 @@ method !chunk-decoder(Int $c --> Callable) {
     }
     default {
       my %types = DuckDBType.enums.invert.Hash;
-      -> $, $ {
-        Failure.new("unsupported column type: $column-type ({%types{$column-type} }) for column $c ({self.column-names[$c]})");
-      }
+      warning "unsupported column type: $column-type ({%types{$column-type} }) for column $c ({self.column-names[$c]})";
+      -> $, $ { Nil }
     }
   }
 }
