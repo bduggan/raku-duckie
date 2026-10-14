@@ -3,6 +3,14 @@
 use Test;
 use Duckie;
 
+my $lib-ver = duckdb-version();
+diag "version of libduckdb: $lib-ver";
+
+# Before 1.5.0, GEOMETRY was a BLOB alias defined by the spatial extension.
+if $lib-ver before v1.5.0 {
+  plan :skip-all("GEOMETRY type requires DuckDB >= 1.5.0 (installed: $lib-ver)");
+}
+
 my $db = Duckie.new;
 
 unless $db.query('load spatial') || ($db.query('install spatial') && $db.query('load spatial')) {
