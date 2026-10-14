@@ -17,6 +17,11 @@ unless $db.query('load spatial') || ($db.query('install spatial') && $db.query('
   plan :skip-all<spatial extension not available>;
 }
 
+# Early 1.5.x releases report GEOMETRY as INVALID through the C API.
+unless $db.query('select st_point(1, 2) as g').column-types[0] eq 'GEOMETRY' {
+  plan :skip-all("GEOMETRY type not exposed by the C API (installed: $lib-ver)");
+}
+
 # hex WKB (little endian) for POINT (1 2)
 my $point = '0101000000000000000000f03f0000000000000040';
 
