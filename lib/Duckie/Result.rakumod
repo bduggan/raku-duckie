@@ -237,28 +237,29 @@ multi method column-data(Int $c --> List) {
   @ret;
 }
 
-#| The deprecated column API (duckdb_column_data) has no data for some
-#| types (e.g. GEOMETRY), and once a result has been read through the chunk
-#| API the deprecated API no longer works (and vice versa).  So results that
-#| contain any of those types are read entirely through the chunk API.
+#| The deprecated column API (duckdb_column_data) has no data for nested
+#| types (LIST, STRUCT) or some other types (e.g. GEOMETRY), and once a result
+#| has been read through the chunk API the deprecated API no longer works
+#| (and vice versa).  So results that contain any of those types are read
+#| entirely through the chunk API.
 method !use-chunks(--> Bool) {
   $!use-chunks //= so (^self.column-count).grep: {
-    duckdb_column_type($!res, $_) == DUCKDB_TYPE_GEOMETRY
+    duckdb_column_type($!res, $_) == any(DUCKDB_TYPE_GEOMETRY, DUCKDB_TYPE_LIST, DUCKDB_TYPE_STRUCT)
   }
 }
 
 #| Returns the data for the specified column number, read from the result chunks.
 method !chunk-column-data(Int $c --> List) {
-  my $decode = self!chunk-decoder($c);
   my @ret;
+  my $label = "column $c ({self.column-names[$c]})";
   for ^duckdb_result_chunk_count($!res) -> $i {
     my $chunk = duckdb_result_get_chunk($!res, $i);
     my $vec = duckdb_data_chunk_get_vector($chunk, $c);
+    my $decode = self!chunk-decoder($vec, $label);
     my $data = duckdb_vector_get_data($vec);
     my $validity = duckdb_vector_get_validity($vec);
     for ^duckdb_data_chunk_get_size($chunk) -> $row {
-      my $valid = !$validity || ($validity[$row div 64] +& (1 +< ($row % 64)));
-      @ret.push: $valid ?? $decode($data, $row) !! Nil;
+      @ret.push: vector-valid($validity, $row) ?? $decode($data, $row) !! Nil;
     }
     duckdb_destroy_data_chunk($chunk);
   }
@@ -279,12 +280,34 @@ sub string-t-at(Pointer $data, Int $i --> Buf) {
   Buf.new( (^$len).map({ $src[$_] }) );
 }
 
-#| Returns a sub that converts element $i of a vector for column $c.
-method !chunk-decoder(Int $c --> Callable) {
+#| Check the $row'th bit in a validity bitmap.  A bitmap where all values
+#| are valid is represented by a NULL pointer.
+sub vector-valid($validity, Int $row --> Bool) {
+  !$validity || so ($validity[$row div 64] +& (1 +< ($row % 64)))
+}
+
+#| Reads a NUL-terminated C string at a pointer.
+sub cstring-at(Pointer $p --> Str) {
+  my $bytes := nativecast(CArray[uint8], $p);
+  my @bytes;
+  my $i = 0;
+  while $bytes[$i] {
+    @bytes.push: $bytes[$i];
+    $i++;
+  }
+  Buf.new(@bytes).decode;
+}
+
+#| Returns a sub that converts element $i of the given vector.  The type is
+#| looked up from the vector itself, so this works for the columns of a
+#| result chunk as well as for the child vectors of nested types, which are
+#| decoded recursively.
+method !chunk-decoder(DuckVector $vec, Str $label = 'vector' --> Callable) {
   my sub at(\T) { -> $data, $i { nativecast(CArray[T], $data)[$i] } }
   my sub struct-at(\T) { -> $data, $i { nativecast(Pointer[T], $data).add($i).deref } }
-  my $column-type = duckdb_column_type($!res, $c);
-  given $column-type {
+  my $logical-type = duckdb_vector_get_column_type($vec);
+  my $column-type = duckdb_get_type_id($logical-type);
+  my $decode = do given $column-type {
     when DUCKDB_TYPE_BOOLEAN    { -> $d, $i { so at(uint8)($d, $i) } }
     when DUCKDB_TYPE_TINYINT    { at(int8) }
     when DUCKDB_TYPE_UTINYINT   { at(uint8) }
@@ -312,7 +335,6 @@ method !chunk-decoder(Int $c --> Callable) {
     when DUCKDB_TYPE_TIMESTAMP_MS { -> $d, $i { DuckTimestamp.new(micros => at(int64)($d, $i) * 1_000).DateTime } }
     when DUCKDB_TYPE_TIMESTAMP_NS { -> $d, $i { DuckTimestamp.new(micros => at(int64)($d, $i) div 1_000).DateTime } }
     when DUCKDB_TYPE_DECIMAL {
-      my $logical-type = duckdb_column_logical_type($!res, $c);
       my $scale = duckdb_decimal_scale($logical-type);
       my $value = do given duckdb_decimal_internal_type($logical-type) {
         when DUCKDB_TYPE_SMALLINT { at(int16) }
@@ -322,12 +344,55 @@ method !chunk-decoder(Int $c --> Callable) {
       }
       -> $d, $i { Rat.new($value($d, $i), 10**$scale) }
     }
+    # lists are a parent vector of duckdb_list_entry (offset, length) pairs
+    # whose elements live in a child vector, at the given offsets
+    when DUCKDB_TYPE_LIST {
+      my $child-vec = duckdb_list_vector_get_child($vec);
+      my $child-data = duckdb_vector_get_data($child-vec);
+      my $child-validity = duckdb_vector_get_validity($child-vec);
+      my &child-decode = self!chunk-decoder($child-vec, $label);
+      -> $data, $i {
+        my $entry = struct-at(DuckListEntry)($data, $i);
+        my @elements = (^$entry.length).map: {
+          my $k = $entry.offset + $_;
+          vector-valid($child-validity, $k) ?? child-decode($child-data, $k) !! Nil;
+        };
+        @elements;
+      }
+    }
+    # structs have one child vector per field; row $i of the struct is
+    # row $i of each of the child vectors
+    when DUCKDB_TYPE_STRUCT {
+      my @fields = (^duckdb_struct_type_child_count($logical-type)).map: {
+        my $name-ptr = duckdb_struct_type_child_name($logical-type, $_);
+        my $name = cstring-at($name-ptr);
+        duckdb_free($name-ptr);
+        my $child-vec = duckdb_struct_vector_get_child($vec, $_);
+        %(
+          :name($name),
+          :data(duckdb_vector_get_data($child-vec)),
+          :validity(duckdb_vector_get_validity($child-vec)),
+          :decode(self!chunk-decoder($child-vec, $label)),
+        )
+      };
+      -> $, $i {
+        my %struct;
+        for @fields -> %field {
+          %struct{ %field<name> } = vector-valid(%field<validity>, $i)
+            ?? %field<decode>(%field<data>, $i)
+            !! Nil;
+        }
+        %struct
+      }
+    }
     default {
       my %types = DuckDBType.enums.invert.Hash;
-      warning "unsupported column type: $column-type ({%types{$column-type} }) for column $c ({self.column-names[$c]})";
+      warning "unsupported column type: $column-type ({%types{$column-type} }) for $label";
       -> $, $ { Nil }
     }
   }
+  duckdb_destroy_logical_type($logical-type);
+  $decode;
 }
 
 method !maybe-read-all {
@@ -373,6 +438,11 @@ method DESTROY {
 =begin pod
 
 =head1 NOTES
+
+LIST columns are returned as arrays of the decoded elements, and STRUCT columns
+as hashes of their fields.  These are decoded recursively, so nested types
+(e.g. a list of structs) are supported, as are other types (including
+GEOMETRY) inside a list or struct.
 
 Unsupported types are currently treated as C<Nil>.  These will emit a warning, if diagnostics
 are enabled.  Set C<DUCKIE_DEBUG> to send warnings to stderr (or use C<Log::Async> and add

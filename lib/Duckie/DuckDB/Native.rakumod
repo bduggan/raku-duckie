@@ -222,6 +222,15 @@ class DuckWKB is export {
   method gist { "WKB<{ self.hex }>" }
 }
 
+#| `duckdb_list_entry` :
+#| Lists are composed of a parent vector holding one of these per row, and
+#| a child vector holding the entries of all of the lists.  An entry contains
+#| the length of the list and its offset in the child vector.
+class DuckListEntry is repr('CStruct') is export {
+  has uint64 $.offset; # uint64_t offset;
+  has uint64 $.length; # uint64_t length;
+}
+
 enum DuckDBResultType (
   DUCKDB_RESULT_TYPE_INVALID => 0,
   DUCKDB_RESULT_TYPE_CHANGED_ROWS => 1,
@@ -492,6 +501,31 @@ sub duckdb_vector_assign_string_element(DuckVector $vec, uint64 $idx, Str $str) 
 
 #| DUCKDB_API idx_t duckdb_vector_size();
 sub duckdb_vector_size() returns uint64 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_logical_type duckdb_vector_get_column_type(duckdb_vector vector);
+#| The result must be destroyed with C<duckdb_destroy_logical_type>.
+sub duckdb_vector_get_column_type(DuckVector $vec) returns LogicalType is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_vector duckdb_list_vector_get_child(duckdb_vector vector);
+#| The resulting vector is valid as long as the parent vector is valid.
+sub duckdb_list_vector_get_child(DuckVector $vec) returns DuckVector is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_vector duckdb_struct_vector_get_child(duckdb_vector vector, idx_t index);
+#| The resulting vector is valid as long as the parent vector is valid.
+sub duckdb_struct_vector_get_child(DuckVector $vec, uint64 $index) returns DuckVector is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_type duckdb_get_type_id(duckdb_logical_type type);
+sub duckdb_get_type_id(LogicalType $type) returns uint32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API idx_t duckdb_struct_type_child_count(duckdb_logical_type type);
+sub duckdb_struct_type_child_count(LogicalType $type) returns uint64 is native(libduckdb) is export { * }
+
+#| DUCKDB_API char *duckdb_struct_type_child_name(duckdb_logical_type type, idx_t index);
+#| The result must be freed with C<duckdb_free>.
+sub duckdb_struct_type_child_name(LogicalType $type, uint64 $index) returns Pointer is native(libduckdb) is export { * }
+
+#| DUCKDB_API void duckdb_free(void *ptr);
+sub duckdb_free(Pointer $ptr) is native(libduckdb) is export { * }
 
 #| DUCKDB_API idx_t duckdb_data_chunk_get_size(duckdb_data_chunk chunk);
 sub duckdb_data_chunk_get_size(DataChunk $chunk) returns uint64 is native(libduckdb) is export { * }

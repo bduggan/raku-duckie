@@ -110,5 +110,7 @@ The dataset as a list of hashes, where the keys are the column names. Set the C<
 NOTES
 =====
 
+LIST columns are returned as arrays of the decoded elements, and STRUCT columns as hashes of their fields. These are decoded recursively, so nested types (e.g. a list of structs) are supported, as are other types (including GEOMETRY) inside a list or struct.
+
 Unsupported types are currently treated as `Nil`. These will emit a warning, if diagnostics are enabled. Set `DUCKIE_DEBUG` to send warnings to stderr (or use `Log::Async` and add a tap).
 

@@ -1,0 +1,91 @@
+#!/usr/bin/env raku
+
+use Test;
+use Duckie;
+
+my $db = Duckie.new;
+
+# --- Lists of scalars ---
+
+with $db.query('select [1, 2, 3] as l') {
+  is .column-types[0], 'LIST', 'column type is LIST';
+  is-deeply .column-data(0)[0], [1, 2, 3], 'list of integers';
+  is-deeply .rows[0]<l>, [1, 2, 3], 'list of integers in rows';
+}
+
+with $db.query(q[select ['a', 'b', 'a longer string'] as l]) {
+  is-deeply .rows[0]<l>, ['a', 'b', 'a longer string'], 'list of varchars';
+}
+
+with $db.query('select list(i) as l from range(5) t(i)') {
+  is-deeply .rows[0]<l>, [0, 1, 2, 3, 4], 'list() aggregate';
+}
+
+# --- Nulls and empty lists ---
+
+with $db.query('select [1, null, 3] as l') {
+  is-deeply .column-data(0)[0], [1, Nil, 3], 'null inside a list';
+}
+
+with $db.query('select null::int[] as l') {
+  is .column-types[0], 'LIST', 'null list still has column type LIST';
+  ok !defined(.column-data(0)[0]), 'null list returns Nil';
+}
+
+with $db.query('select []::int[] as l') {
+  is-deeply .column-data(0)[0], [], 'empty list';
+}
+
+# --- Nested lists and structs ---
+
+with $db.query('select [[1, 2], [3]] as l') {
+  is-deeply .rows[0]<l>, [[1, 2], [3]], 'list of lists';
+}
+
+with $db.query(q[select struct_pack(a := 1, b := 'x') as s]) {
+  is .column-types[0], 'STRUCT', 'column type is STRUCT';
+  is-deeply .column-data(0)[0], %( :a(1), :b('x') ), 'struct with int and varchar fields';
+  is-deeply .rows[0]<s>, %( :a(1), :b('x') ), 'struct in rows';
+}
+
+with $db.query('select struct_pack(a := 1, b := null::int) as s') {
+  is-deeply .rows[0]<s>, %( :a(1), :b(Nil) ), 'null struct field';
+}
+
+with $db.query('select [struct_pack(a := 1), struct_pack(a := 2)] as l') {
+  is-deeply .rows[0]<l>, [%( :a(1) ), %( :a(2) )], 'list of structs';
+}
+
+# --- Other types inside lists ---
+
+with $db.query('select [1.5::decimal(10,2), 2.25] as l') {
+  is-deeply .rows[0]<l>, [1.5, 2.25], 'decimal inside a list';
+}
+
+with $db.query(q[select [timestamp '2024-01-02 03:04:05'] as l]) {
+  is-deeply .rows[0]<l>, [DateTime.new(2024, 1, 2, 3, 4, 5)], 'timestamp inside a list';
+}
+
+# --- Lists and structs across chunks, alongside other types ---
+
+with $db.query(q:to/SQL/) {
+  select i,
+         i::varchar as s,
+         [i, i + 1, i + 2] as l,
+         case when i % 3 = 0 then null else [i, i + 1] end as n,
+         struct_pack(a := i, b := i::varchar) as t
+  from range(3000) t(i)
+  order by i
+  SQL
+  my @rows = .rows;
+  is @rows.elems, 3000, 'all rows read';
+  is-deeply @rows[1]<l>, [1, 2, 3], 'list column in first chunk';
+  is-deeply @rows[2500]<l>, [2500, 2501, 2502], 'list column in later chunk';
+  is @rows[2500]<s>, '2500', 'varchar column alongside list column';
+  ok !defined(@rows[3]<n>), 'null list in later rows';
+  is-deeply @rows[2999]<n>, [2999, 3000], 'list after a null';
+  is-deeply @rows[2999]<t>, %( :a(2999), :b('2999') ), 'struct column in later chunk';
+  is-deeply .column-data('l')[2999], [2999, 3000, 3001], 'column-data by name';
+}
+
+done-testing;
