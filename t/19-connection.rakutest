@@ -1,0 +1,65 @@
+#!/usr/bin/env raku
+
+use Test;
+use Duckie;
+
+plan 22;
+
+my $db = Duckie.new;
+
+# --- execute ---
+
+is $db.execute('create table t (x int)'), 0, 'execute ddl returns 0 rows changed';
+is $db.execute('insert into t values (1), (2), (3)'), 3, 'execute insert returns rows changed';
+is $db.execute('update t set x = x + 10 where x > 1'), 2, 'execute update returns rows changed';
+is $db.execute('create table u (y int); insert into u values (7), (8)'), 2, 'execute runs multiple statements';
+is $db.query('select y from u order by y').column-data(0), [7, 8], 'multiple statements took effect';
+
+my $bad = $db.execute('select * from no_such_table');
+ok $bad ~~ Failure, 'execute with bad sql is a soft failure';
+like $bad.exception.message, /no_such_table/, 'failure has the error message';
+
+# --- begin / commit / rollback ---
+
+ok $db.begin === $db, 'begin returns the Duckie object';
+$db.execute('insert into t values (100)');
+ok $db.rollback === $db, 'rollback returns the Duckie object';
+is $db.query('select count(*) as n from t').rows[0]<n>, 3, 'rollback discards changes';
+
+$db.begin;
+$db.execute('insert into t values (200)');
+ok $db.commit === $db, 'commit returns the Duckie object';
+is $db.query('select count(*) as n from t').rows[0]<n>, 4, 'commit keeps changes';
+
+my $no-tx = $db.commit;
+ok $no-tx ~~ Failure, 'commit with no transaction is a soft failure';
+$no-tx.so;
+
+$db.begin.execute('insert into t values (300)');
+$db.commit;
+is $db.query('select count(*) as n from t').rows[0]<n>, 5, 'begin can be chained';
+
+# --- ping / finish ---
+
+ok $db.ping, 'ping is true when connected';
+
+my $stmt = $db.prepare('select 1 as n');
+$db.begin;
+lives-ok { $db.finish }, 'finish with open transaction';
+nok $db.ping, 'ping is false after finish';
+ok $db.query('select 1') ~~ Failure, 'query after finish is a soft failure';
+ok $db.prepare('select 1') ~~ Failure, 'prepare after finish is a soft failure';
+ok $db.execute('select 1') ~~ Failure, 'execute after finish is a soft failure';
+lives-ok { $db.finish }, 'finish twice is fine';
+
+# --- finish on a file database rolls back an open transaction ---
+
+my $file = $*TMPDIR.child("duckie-finish-$*PID.db");
+LEAVE { .unlink with $file; .unlink with $file.sibling($file.basename ~ '.wal') }
+with Duckie.new(:file(~$file)) {
+  .execute('create table t (x int); insert into t values (1)');
+  .begin;
+  .execute('insert into t values (2)');
+  .finish;
+}
+is Duckie.new(:file(~$file)).query('select count(*) as n from t').rows[0]<n>, 1, 'finish rolls back open transaction';

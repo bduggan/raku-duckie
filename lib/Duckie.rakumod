@@ -455,6 +455,7 @@ $db.query('select $x + $y as sum', x => 1, y => 2);
 
 multi method query(Str $sql --> Duckie::Result) {
   trace "Running query: $sql";
+  fail "Database connection is closed" unless $!conn;
   my $res = DuckDB::Native::Result.new;
   unless (duckdb_query($!conn, $sql, $res) == DUCKDB_SUCCESS) {
      fail duckdb_result_error($res);
@@ -502,6 +503,7 @@ $stmt2.execute(x => 1, y => 2).rows;
 
 method prepare(Str $sql --> Duckie::PreparedStatement) {
   trace "Preparing query: $sql";
+  fail "Database connection is closed" unless $!conn;
   my $ps = Duckie::PreparedStatement.new;
   unless duckdb_prepare($!conn, $sql, $ps.stmt) == DUCKDB_SUCCESS {
     fail duckdb_prepare_error($ps.stmt);
@@ -516,6 +518,115 @@ multi method query(Str $sql, *@params where @params > 0 --> Duckie::Result) {
 
 multi method query(Str $sql, *%named where %named.keys > 0 --> Duckie::Result) {
   self.prepare($sql).execute(|%named);
+}
+
+=begin pod
+
+=head3 method execute
+
+=begin code
+
+method execute(Str $sql --> Int)
+
+=end code
+
+Run one or more SQL statements without returning a result set.  Returns the
+number of rows changed by the last statement.  Placeholders are not supported;
+use C<query> or C<prepare> for those.  If the statement fails, a soft failure is thrown.
+
+=begin code
+
+$db.execute('create table t (x int)');
+say $db.execute('insert into t values (1), (2)'); # 2
+
+=end code
+
+=end pod
+
+method execute(Str $sql --> Int) {
+  trace "Executing: $sql";
+  fail "Database connection is closed" unless $!conn;
+  my $res = DuckDB::Native::Result.new;
+  LEAVE { duckdb_destroy_result($_) with $res }
+  unless duckdb_query($!conn, $sql, $res) == DUCKDB_SUCCESS {
+    fail duckdb_result_error($res);
+  }
+  duckdb_rows_changed($res);
+}
+
+=begin pod
+
+=head3 methods begin, commit, rollback
+
+=begin code
+
+method begin(--> Duckie)
+method commit(--> Duckie)
+method rollback(--> Duckie)
+
+=end code
+
+Begin, commit, or roll back a transaction.  Each returns the C<Duckie> object,
+or a soft failure if the statement fails.
+
+=begin code
+
+$db.begin;
+$db.execute('insert into t values (3)');
+$db.rollback;
+
+=end code
+
+=end pod
+
+method !transaction(Str $sql) {
+  my $rc = self.execute($sql);
+  $rc ~~ Failure ?? $rc !! self;
+}
+
+method begin(--> Duckie)    { self!transaction('begin transaction') }
+method commit(--> Duckie)   { self!transaction('commit') }
+method rollback(--> Duckie) { self!transaction('rollback') }
+
+=begin pod
+
+=head3 method ping
+
+=begin code
+
+method ping(--> Bool)
+
+=end code
+
+Returns C<True> if the database connection is open.
+
+=head3 method finish
+
+=begin code
+
+method finish(--> Nil)
+
+=end code
+
+Close the database connection.  An open transaction is rolled back.  After
+this, C<query>, C<prepare>, and C<execute> return soft failures and C<ping>
+returns C<False>.  This also happens automatically when the object is destroyed.
+
+=end pod
+
+method ping(--> Bool) {
+  so $!conn && self.query('select 1');
+}
+
+method finish(--> Nil) {
+  with $!conn {
+    duckdb_disconnect($!conn);
+    $!conn = Nil;
+  }
+  with $!dbh {
+    duckdb_close($!dbh);
+    $!dbh = Nil;
+  }
 }
 
 =begin pod
@@ -754,10 +865,7 @@ Close the database connection and free resources.
 =end pod
 
 method DESTROY {
-  duckdb_disconnect($!conn);
-  $!conn = Nil;
-  duckdb_close($!dbh);
-  $!dbh = Nil;
+  self.finish;
 }
 
 =begin pod
