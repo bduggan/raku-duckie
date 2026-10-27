@@ -3,7 +3,7 @@
 use Test;
 use Duckie;
 
-plan 22;
+plan 32;
 
 my $db = Duckie.new;
 
@@ -18,6 +18,26 @@ is $db.query('select y from u order by y').column-data(0), [7, 8], 'multiple sta
 my $bad = $db.execute('select * from no_such_table');
 ok $bad ~~ Failure, 'execute with bad sql is a soft failure';
 like $bad.exception.message, /no_such_table/, 'failure has the error message';
+
+# --- execute with bind variables ---
+
+$db.execute('create table b (x int, s text)');
+is $db.execute('insert into b values (?, ?)', 1, 'one'), 1, 'execute with positional binds returns rows changed';
+is $db.execute('insert into b values ($x, $s)', x => 2, s => 'two'), 1, 'execute with named binds returns rows changed';
+is $db.execute('insert into b values (?, ?)', 3, Nil), 1, 'execute binds undefined as null';
+my @b = $db.query('select x, s from b order by x').rows(:arrays);
+is @b[0..1], [[1, 'one'], [2, 'two']], 'bound values were inserted';
+ok @b[2][0] == 3 && !@b[2][1].defined, 'null was inserted';
+is $db.execute('update b set s = ? where x >= ?', 'big', 2), 2, 'execute update with binds';
+is $db.execute('delete from b where x < $max', max => 3), 2, 'execute delete with named bind';
+
+my $bad-bind = $db.execute('insert into nope values (?)', 1);
+ok $bad-bind ~~ Failure, 'execute with binds and bad sql is a soft failure';
+like $bad-bind.exception.message, /nope/, 'bind failure has the error message';
+
+my $bad-name = $db.execute('select $x', y => 1);
+ok $bad-name ~~ Failure, 'execute with unknown named bind is a soft failure';
+$bad-name.so;
 
 # --- begin / commit / rollback ---
 

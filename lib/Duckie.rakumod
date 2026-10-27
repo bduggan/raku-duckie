@@ -526,24 +526,43 @@ multi method query(Str $sql, *%named where %named.keys > 0 --> Duckie::Result) {
 
 =begin code
 
-method execute(Str $sql --> Int)
+multi method execute(Str $sql --> Int)
+multi method execute(Str $sql, *@params --> Int)
+multi method execute(Str $sql, *%named --> Int)
 
 =end code
 
-Run one or more SQL statements without returning a result set.  Returns the
-number of rows changed by the last statement.  Placeholders are not supported;
-use C<query> or C<prepare> for those.  If the statement fails, a soft failure is thrown.
+Run SQL without returning a result set.  Returns the number of rows changed.
+If the statement fails, a soft failure is thrown.
+
+Without bind parameters, C<$sql> may contain several statements, and the
+count is for the last one.  With bind parameters, use C<?> for positional
+or C<$name> for named placeholders; only a single statement is allowed.
 
 =begin code
 
 $db.execute('create table t (x int)');
 say $db.execute('insert into t values (1), (2)'); # 2
+say $db.execute('insert into t values (?)', 3);   # 1
+say $db.execute('delete from t where x > $min', min => 1); # 2
 
 =end code
 
 =end pod
 
-method execute(Str $sql --> Int) {
+multi method execute(Str $sql, *@params where @params > 0 --> Int) {
+  my $stmt = self.prepare($sql) orelse return $_;
+  my $result = $stmt.execute(|@params) orelse return $_;
+  duckdb_rows_changed($result.res);
+}
+
+multi method execute(Str $sql, *%named where %named.keys > 0 --> Int) {
+  my $stmt = self.prepare($sql) orelse return $_;
+  my $result = $stmt.execute(|%named) orelse return $_;
+  duckdb_rows_changed($result.res);
+}
+
+multi method execute(Str $sql --> Int) {
   trace "Executing: $sql";
   fail "Database connection is closed" unless $!conn;
   my $res = DuckDB::Native::Result.new;
