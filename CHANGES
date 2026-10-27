@@ -1,3 +1,9 @@
+0.0.14 2026-10-27
+  - support lists and structs
+  - add shim for linux to achieve pass by value with nativecall
+  - bind vars
+  - begin,commit,finish,execute,rollback
+
 0.0.13 2026-10-14
  - new types; geometry, variant, timestamp_tz_ns
  - update CI
