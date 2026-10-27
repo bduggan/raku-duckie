@@ -298,14 +298,50 @@ sub duckdb_rows_changed(Result $res) returns uint64 is native(libduckdb) is expo
 #| DUCKDB_API const char *duckdb_result_error(duckdb_result *result);
 sub duckdb_result_error(Result $res) returns Str is native(libduckdb) is export { * }
 
+# Some functions take a duckdb_result by value, but NativeCall passes a
+# CStruct as a pointer.  That happens to match how arm64 and Windows x64 pass
+# a struct of this size (as a pointer to a copy), but the System V x86_64 ABI
+# (Linux, Intel macOS, the BSDs) copies the struct onto the stack.  There, we fill the
+# six integer argument registers and pass the struct's six 8-byte words as
+# the remaining arguments, which go on the stack.
+
+sub sysv-x86_64(--> Bool) {
+  # the BSDs report x86_64 hardware as amd64
+  state $ = $*KERNEL.hardware (elem) <x86_64 amd64> && !$*DISTRO.is-win;
+}
+
+sub result-words(Result $res) {
+  my $words = nativecast(CArray[uint64], nativecast(Pointer, $res));
+  (^6).map: { $words[$_] }
+}
+
+sub chunk_count_ptr(Result) returns uint64 is native(libduckdb) is symbol('duckdb_result_chunk_count') { * }
+sub chunk_count_sysv(uint64, uint64, uint64, uint64, uint64, uint64,
+                     uint64, uint64, uint64, uint64, uint64, uint64)
+  returns uint64 is native(libduckdb) is symbol('duckdb_result_chunk_count') { * }
+
+sub get_chunk_ptr(Result, uint64) returns DataChunk is native(libduckdb) is symbol('duckdb_result_get_chunk') { * }
+sub get_chunk_sysv(uint64, uint64, uint64, uint64, uint64, uint64,
+                   uint64, uint64, uint64, uint64, uint64, uint64)
+  returns DataChunk is native(libduckdb) is symbol('duckdb_result_get_chunk') { * }
+
 #| DUCKDB_API idx_t duckdb_result_chunk_count(duckdb_result result);
-sub duckdb_result_chunk_count(Result $res) returns uint64 is native(libduckdb) is export { * }
+sub duckdb_result_chunk_count(Result $res --> Int) is export {
+  sysv-x86_64()
+    ?? chunk_count_sysv(0, 0, 0, 0, 0, 0, |result-words($res))
+    !! chunk_count_ptr($res)
+}
 
 #| DUCKDB_API duckdb_result_type duckdb_result_return_type(duckdb_result result);
 sub duckdb_result_return_type(Result $res) returns uint32 is native(libduckdb) is export { * }
 
 #| DUCKDB_API duckdb_data_chunk duckdb_result_get_chunk(duckdb_result result, idx_t chunk_index);
-sub duckdb_result_get_chunk(Result $res, uint64 $chunk_index) returns DataChunk is native(libduckdb) is export { * }
+sub duckdb_result_get_chunk(Result $res, Int $chunk_index --> DataChunk) is export {
+  # chunk_index is the first integer argument, so it goes in the first register
+  sysv-x86_64()
+    ?? get_chunk_sysv($chunk_index, 0, 0, 0, 0, 0, |result-words($res))
+    !! get_chunk_ptr($res, $chunk_index)
+}
 
 #| DUCKDB_API idx_t duckdb_data_chunk_get_column_count(duckdb_data_chunk chunk);
 sub duckdb_data_chunk_get_column_count(DataChunk $chunk) is native(libduckdb) is export { * }
