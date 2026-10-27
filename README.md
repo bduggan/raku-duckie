@@ -120,6 +120,45 @@ Execute the prepared statement, optionally binding positional (`?`) or named (`$
     my $stmt2 = $db.prepare('select $x + $y as sum');
     $stmt2.execute(x => 1, y => 2).rows;
 
+### method execute
+
+    multi method execute(Str $sql --> Int)
+    multi method execute(Str $sql, *@params --> Int)
+    multi method execute(Str $sql, *%named --> Int)
+
+Run SQL without returning a result set. Returns the number of rows changed. If the statement fails, a soft failure is thrown.
+
+Without bind parameters, `$sql` may contain several statements, and the count is for the last one. With bind parameters, use `?` for positional or `$name` for named placeholders; only a single statement is allowed.
+
+    $db.execute('create table t (x int)');
+    say $db.execute('insert into t values (1), (2)'); # 2
+    say $db.execute('insert into t values (?)', 3);   # 1
+    say $db.execute('delete from t where x > $min', min => 1); # 2
+
+### methods begin, commit, rollback
+
+    method begin(--> Duckie)
+    method commit(--> Duckie)
+    method rollback(--> Duckie)
+
+Begin, commit, or roll back a transaction. Each returns the `Duckie` object, or a soft failure if the statement fails.
+
+    $db.begin;
+    $db.execute('insert into t values (3)');
+    $db.rollback;
+
+### method ping
+
+    method ping(--> Bool)
+
+Returns `True` if the database connection is open.
+
+### method finish
+
+    method finish(--> Nil)
+
+Close the database connection. An open transaction is rolled back. After this, `query`, `prepare`, and `execute` return soft failures and `ping` returns `False`. This also happens automatically when the object is destroyed.
+
 ### method register-table-function
 
     method register-table-function(

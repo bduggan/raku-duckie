@@ -124,6 +124,16 @@ class DuckDB::Native::DuckTimestamp
 
 `duckdb_timestamp` : Timestamps are stored as microseconds since 1970-01-01
 
+class DuckDB::Native::DuckWKB
+-----------------------------
+
+`GEOMETRY` : Geometries are stored as WKB (well-known binary)
+
+class DuckDB::Native::DuckListEntry
+-----------------------------------
+
+`duckdb_list_entry` : Lists are composed of a parent vector holding one of these per row, and a child vector holding the entries of all of the lists.  An entry contains the length of the list and its offset in the child vector.
+
 SUBROUTINES
 ===========
 
@@ -313,7 +323,7 @@ DUCKDB_API const char *duckdb_result_error(duckdb_result *result);
 ```raku
 sub duckdb_result_chunk_count(
     DuckDB::Native::Result $res
-) returns uint64
+) returns Int
 ```
 
 DUCKDB_API idx_t duckdb_result_chunk_count(duckdb_result result);
@@ -333,7 +343,7 @@ DUCKDB_API duckdb_result_type duckdb_result_return_type(duckdb_result result);
 ```raku
 sub duckdb_result_get_chunk(
     DuckDB::Native::Result $res,
-    uint64 $chunk_index
+    Int $chunk_index
 ) returns DuckDB::Native::DataChunk
 ```
 
@@ -887,6 +897,16 @@ sub duckdb_vector_get_data(
 
 DUCKDB_API void *duckdb_vector_get_data(duckdb_vector vector);
 
+### sub duckdb_vector_get_validity
+
+```raku
+sub duckdb_vector_get_validity(
+    DuckDB::Native::DuckVector $vec
+) returns NativeCall::Types::Pointer[uint64]
+```
+
+DUCKDB_API uint64_t *duckdb_vector_get_validity(duckdb_vector vector); Returns NULL when all values are valid.
+
 ### sub duckdb_vector_assign_string_element
 
 ```raku
@@ -907,6 +927,78 @@ sub duckdb_vector_size() returns uint64
 
 DUCKDB_API idx_t duckdb_vector_size();
 
+### sub duckdb_vector_get_column_type
+
+```raku
+sub duckdb_vector_get_column_type(
+    DuckDB::Native::DuckVector $vec
+) returns DuckDB::Native::LogicalType
+```
+
+DUCKDB_API duckdb_logical_type duckdb_vector_get_column_type(duckdb_vector vector); The result must be destroyed with C<duckdb_destroy_logical_type>.
+
+### sub duckdb_list_vector_get_child
+
+```raku
+sub duckdb_list_vector_get_child(
+    DuckDB::Native::DuckVector $vec
+) returns DuckDB::Native::DuckVector
+```
+
+DUCKDB_API duckdb_vector duckdb_list_vector_get_child(duckdb_vector vector); The resulting vector is valid as long as the parent vector is valid.
+
+### sub duckdb_struct_vector_get_child
+
+```raku
+sub duckdb_struct_vector_get_child(
+    DuckDB::Native::DuckVector $vec,
+    uint64 $index
+) returns DuckDB::Native::DuckVector
+```
+
+DUCKDB_API duckdb_vector duckdb_struct_vector_get_child(duckdb_vector vector, idx_t index); The resulting vector is valid as long as the parent vector is valid.
+
+### sub duckdb_get_type_id
+
+```raku
+sub duckdb_get_type_id(
+    DuckDB::Native::LogicalType $type
+) returns uint32
+```
+
+DUCKDB_API duckdb_type duckdb_get_type_id(duckdb_logical_type type);
+
+### sub duckdb_struct_type_child_count
+
+```raku
+sub duckdb_struct_type_child_count(
+    DuckDB::Native::LogicalType $type
+) returns uint64
+```
+
+DUCKDB_API idx_t duckdb_struct_type_child_count(duckdb_logical_type type);
+
+### sub duckdb_struct_type_child_name
+
+```raku
+sub duckdb_struct_type_child_name(
+    DuckDB::Native::LogicalType $type,
+    uint64 $index
+) returns NativeCall::Types::Pointer
+```
+
+DUCKDB_API char *duckdb_struct_type_child_name(duckdb_logical_type type, idx_t index); The result must be freed with C<duckdb_free>.
+
+### sub duckdb_free
+
+```raku
+sub duckdb_free(
+    NativeCall::Types::Pointer $ptr
+) returns Mu
+```
+
+DUCKDB_API void duckdb_free(void *ptr);
+
 ### sub duckdb_data_chunk_get_size
 
 ```raku
@@ -916,6 +1008,16 @@ sub duckdb_data_chunk_get_size(
 ```
 
 DUCKDB_API idx_t duckdb_data_chunk_get_size(duckdb_data_chunk chunk);
+
+### sub duckdb_destroy_data_chunk
+
+```raku
+sub duckdb_destroy_data_chunk(
+    DuckDB::Native::DataChunk $chunk is rw
+) returns Mu
+```
+
+DUCKDB_API void duckdb_destroy_data_chunk(duckdb_data_chunk *chunk);
 
 ### sub duckdb_destroy_value
 

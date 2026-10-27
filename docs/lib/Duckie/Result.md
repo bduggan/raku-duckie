@@ -89,6 +89,67 @@ multi method column-data(
 
 Returns the data for the specified column number
 
+### method use-chunks
+
+```raku
+method use-chunks() returns Bool
+```
+
+The deprecated column API (duckdb_column_data) has no data for nested types (LIST, STRUCT) or some other types (e.g. GEOMETRY), and once a result has been read through the chunk API the deprecated API no longer works (and vice versa).  So results that contain any of those types are read entirely through the chunk API.
+
+### method chunk-column-data
+
+```raku
+method chunk-column-data(
+    Int $c
+) returns List
+```
+
+Returns the data for the specified column number, read from the result chunks.
+
+### sub string-t-at
+
+```raku
+sub string-t-at(
+    NativeCall::Types::Pointer $data,
+    Int $i
+) returns Buf
+```
+
+Read element $i of a vector stored as duckdb_string_t (16 bytes/element): bytes 0-3  : uint32 length if len ≤ 12: bytes 4-15 contain the inlined data if len > 12: bytes 8-15 contain a pointer to the data
+
+### sub vector-valid
+
+```raku
+sub vector-valid(
+    $validity,
+    Int $row
+) returns Bool
+```
+
+Check the $row'th bit in a validity bitmap.  A bitmap where all values are valid is represented by a NULL pointer.
+
+### sub cstring-at
+
+```raku
+sub cstring-at(
+    NativeCall::Types::Pointer $p
+) returns Str
+```
+
+Reads a NUL-terminated C string at a pointer.
+
+### method chunk-decoder
+
+```raku
+method chunk-decoder(
+    DuckDB::Native::DuckVector $vec,
+    Str $label = "vector"
+) returns Callable
+```
+
+Returns a sub that converts element $i of the given vector.  The type is looked up from the vector itself, so this works for the columns of a result chunk as well as for the child vectors of nested types, which are decoded recursively.
+
 ### method columns
 
 ```raku
