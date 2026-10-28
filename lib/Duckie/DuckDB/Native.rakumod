@@ -144,6 +144,18 @@ class HugeInt is repr('CStruct') is export {
   method value {
     return $!upper * 2**64 + $!lower;
   }
+  #| UUIDs share the hugeint layout, with the top bit flipped (so that
+  #| `order by uuid` matches `order by uuid::varchar`).  Returns the
+  #| canonical 8-4-4-4-12 hexadecimal form.
+  method uuid {
+    my $upper = ($!upper +^ (1 +< 63)) +& 0xFFFF_FFFF_FFFF_FFFF;
+    my $lower = $!lower +& 0xFFFF_FFFF_FFFF_FFFF;
+    my $hex = sprintf('%08x%08x%08x%08x',
+      $upper +> 32, $upper +& 0xFFFF_FFFF,
+      $lower +> 32, $lower +& 0xFFFF_FFFF);
+    $hex.substr(0, 8) ~ '-' ~ $hex.substr(8, 4) ~ '-' ~ $hex.substr(12, 4)
+      ~ '-' ~ $hex.substr(16, 4) ~ '-' ~ $hex.substr(20, 12);
+  }
 }
 
 #| `duckdb_blob` :

@@ -242,9 +242,16 @@ multi method column-data(Int $c --> List) {
 #| has been read through the chunk API the deprecated API no longer works
 #| (and vice versa).  So results that contain any of those types are read
 #| entirely through the chunk API.
+my constant @chunk-only-types = (
+  DUCKDB_TYPE_GEOMETRY, DUCKDB_TYPE_LIST, DUCKDB_TYPE_STRUCT,
+  DUCKDB_TYPE_UUID, DUCKDB_TYPE_TIME_TZ, DUCKDB_TYPE_INTERVAL, DUCKDB_TYPE_BIGNUM,
+  DUCKDB_TYPE_BIT, DUCKDB_TYPE_ENUM, DUCKDB_TYPE_MAP,
+  DUCKDB_TYPE_ARRAY, DUCKDB_TYPE_UNION,
+);
+
 method !use-chunks(--> Bool) {
   $!use-chunks //= so (^self.column-count).grep: {
-    duckdb_column_type($!res, $_) == any(DUCKDB_TYPE_GEOMETRY, DUCKDB_TYPE_LIST, DUCKDB_TYPE_STRUCT)
+    duckdb_column_type($!res, $_) == any(@chunk-only-types)
   }
 }
 
@@ -321,6 +328,7 @@ method !chunk-decoder(DuckVector $vec, Str $label = 'vector' --> Callable) {
     when DUCKDB_TYPE_DOUBLE     { at(num64) }
     when DUCKDB_TYPE_HUGEINT    { -> $d, $i { struct-at(HugeInt)($d, $i).value } }
     when DUCKDB_TYPE_UHUGEINT   { -> $d, $i { struct-at(UHugeInt)($d, $i).value } }
+    when DUCKDB_TYPE_UUID       { -> $d, $i { struct-at(HugeInt)($d, $i).uuid } }
     when DUCKDB_TYPE_VARCHAR    { -> $d, $i { string-t-at($d, $i).decode } }
     when DUCKDB_TYPE_BLOB       { &string-t-at }
     when DUCKDB_TYPE_GEOMETRY   { -> $d, $i { DuckWKB.new(wkb => string-t-at($d, $i)).hex } }
