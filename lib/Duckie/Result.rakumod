@@ -335,6 +335,8 @@ method !chunk-decoder(DuckVector $vec, Str $label = 'vector' --> Callable) {
     when DUCKDB_TYPE_DATE       { -> $d, $i { struct-at(DuckDate)($d, $i).Date } }
     when DUCKDB_TYPE_TIME       { -> $d, $i { struct-at(DuckTime)($d, $i).DateTime } }
     when DUCKDB_TYPE_TIME_NS    { -> $d, $i { struct-at(DuckTimeNS)($d, $i).DateTime } }
+    when DUCKDB_TYPE_TIME_TZ    { -> $d, $i { struct-at(DuckTimeTZ)($d, $i).DateTime } }
+    when DUCKDB_TYPE_INTERVAL   { -> $d, $i { struct-at(DuckInterval)($d, $i).Interval } }
     when DUCKDB_TYPE_TIMESTAMP | DUCKDB_TYPE_TIMESTAMP_TZ {
       -> $d, $i { struct-at(DuckTimestamp)($d, $i).DateTime }
     }

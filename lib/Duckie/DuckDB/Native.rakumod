@@ -215,6 +215,43 @@ class DuckTimeNS is repr('CStruct') is export {
 }
 
 
+#| `duckdb_time_tz` :
+#| Time with time zone: 40 bits of microseconds since 00:00:00 (high bits),
+#| and 24 bits of UTC offset (low bits), stored as 15:59:59 minus the offset in seconds.
+class DuckTimeTZ is repr('CStruct') is export {
+  has uint64 $.bits; # uint64_t bits;
+  method micros { ($!bits +& 0xFFFF_FFFF_FFFF_FFFF) +> 24 }
+  #| The UTC offset in seconds
+  method offset { (16 * 60 * 60 - 1) - ($!bits +& 0xFF_FFFF) }
+  #| cast to a raku DateTime (on 1970-01-01, in the stored offset)
+  method DateTime {
+    my $offset = self.offset;
+    DateTime.new(self.micros / 1_000_000 - $offset, timezone => $offset);
+  }
+}
+
+#| An interval, as a Raku value.  Months and days vary in length, so they
+#| cannot be combined into a fixed duration; the components are kept separate.
+class Interval is export {
+  has Int $.months is required;
+  has Int $.days is required;
+  has Int $.micros is required;
+  #| The sub-day part, in seconds
+  method seconds { $!micros / 1_000_000 }
+  method gist { "Interval<months={$!months} days={$!days} micros={$!micros}>" }
+  method Str { self.gist }
+}
+
+#| `duckdb_interval` :
+#| Intervals are stored as months, days, and microseconds.
+class DuckInterval is repr('CStruct') is export {
+  has int32 $.months; # int32_t months;
+  has int32 $.days;   # int32_t days;
+  has int64 $.micros; # int64_t micros;
+  #| copy to a raku Interval (the struct itself lives in vector memory)
+  method Interval { Interval.new(:months($!months), :days($!days), :micros($!micros)) }
+}
+
 #| `duckdb_timestamp` :
 #| Timestamps are stored as microseconds since 1970-01-01
 class DuckTimestamp is repr('CStruct') is export {
