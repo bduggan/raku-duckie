@@ -287,6 +287,25 @@ sub string-t-at(Pointer $data, Int $i --> Buf) {
   Buf.new( (^$len).map({ $src[$_] }) );
 }
 
+#| Decode a BIGNUM blob: a 3 byte header followed by the big-endian bytes of
+#| the absolute value.  The top bit of the header is set for positive numbers;
+#| for negative numbers the header and the data are bitwise inverted.
+sub bignum-value(Buf $blob --> Int) {
+  my $negative = !($blob[0] +& 0x80);
+  my @bytes = $blob.subbuf(3).list;
+  @bytes = @bytes.map: { $_ +^ 0xFF } if $negative;
+  my $abs = :256[ @bytes ];
+  $negative ?? -$abs !! $abs;
+}
+
+#| Decode a BIT blob into a string of 0s and 1s.  The first byte is the number
+#| of padding bits (0-7), which are the first bits of the second byte.
+sub bit-string(Buf $blob --> Str) {
+  my $padding = $blob[0];
+  my $bits = $blob.subbuf(1).list.map({ .fmt('%08b') }).join;
+  $bits.substr($padding);
+}
+
 #| Check the $row'th bit in a validity bitmap.  A bitmap where all values
 #| are valid is represented by a NULL pointer.
 sub vector-valid($validity, Int $row --> Bool) {
@@ -331,6 +350,8 @@ method !chunk-decoder(DuckVector $vec, Str $label = 'vector' --> Callable) {
     when DUCKDB_TYPE_UUID       { -> $d, $i { struct-at(HugeInt)($d, $i).uuid } }
     when DUCKDB_TYPE_VARCHAR    { -> $d, $i { string-t-at($d, $i).decode } }
     when DUCKDB_TYPE_BLOB       { &string-t-at }
+    when DUCKDB_TYPE_BIGNUM     { -> $d, $i { bignum-value(string-t-at($d, $i)) } }
+    when DUCKDB_TYPE_BIT        { -> $d, $i { bit-string(string-t-at($d, $i)) } }
     when DUCKDB_TYPE_GEOMETRY   { -> $d, $i { DuckWKB.new(wkb => string-t-at($d, $i)).hex } }
     when DUCKDB_TYPE_DATE       { -> $d, $i { struct-at(DuckDate)($d, $i).Date } }
     when DUCKDB_TYPE_TIME       { -> $d, $i { struct-at(DuckTime)($d, $i).DateTime } }
@@ -354,9 +375,28 @@ method !chunk-decoder(DuckVector $vec, Str $label = 'vector' --> Callable) {
       }
       -> $d, $i { Rat.new($value($d, $i), 10**$scale) }
     }
+    # enums are stored as an index into a dictionary of the enum's values.
+    # The logical type is destroyed below, so read the whole dictionary now.
+    when DUCKDB_TYPE_ENUM {
+      my @dictionary = (^duckdb_enum_dictionary_size($logical-type)).map: {
+        my $ptr = duckdb_enum_dictionary_value($logical-type, $_);
+        my $value = nativecast(Str, $ptr);
+        duckdb_free($ptr);
+        $value;
+      };
+      my &index-at = do given duckdb_enum_internal_type($logical-type) {
+        when DUCKDB_TYPE_UTINYINT  { at(uint8) }
+        when DUCKDB_TYPE_USMALLINT { at(uint16) }
+        default                    { at(uint32) }
+      }
+      -> $d, $i { @dictionary[ index-at($d, $i) ] }
+    }
     # lists are a parent vector of duckdb_list_entry (offset, length) pairs
-    # whose elements live in a child vector, at the given offsets
-    when DUCKDB_TYPE_LIST {
+    # whose elements live in a child vector, at the given offsets.
+    # A map is a list of structs with a key and a value; it is returned as a
+    # list of pairs, which keeps the order and the types of the keys.
+    when DUCKDB_TYPE_LIST | DUCKDB_TYPE_MAP {
+      my $is-map = $column-type == DUCKDB_TYPE_MAP;
       my $child-vec = duckdb_list_vector_get_child($vec);
       my $child-data = duckdb_vector_get_data($child-vec);
       my $child-validity = duckdb_vector_get_validity($child-vec);
@@ -367,7 +407,48 @@ method !chunk-decoder(DuckVector $vec, Str $label = 'vector' --> Callable) {
           my $k = $entry.offset + $_;
           vector-valid($child-validity, $k) ?? child-decode($child-data, $k) !! Nil;
         };
+        @elements = @elements.map({ .<key> => .<value> }) if $is-map;
         @elements;
+      }
+    }
+    # fixed size arrays have no per-row entries: row $i is the $size elements
+    # of the child vector starting at $i * $size
+    when DUCKDB_TYPE_ARRAY {
+      my $size = duckdb_array_type_array_size($logical-type);
+      my $child-vec = duckdb_array_vector_get_child($vec);
+      my $child-data = duckdb_vector_get_data($child-vec);
+      my $child-validity = duckdb_vector_get_validity($child-vec);
+      my &child-decode = self!chunk-decoder($child-vec, $label);
+      -> $, $i {
+        my @elements = (^$size).map: {
+          my $k = $i * $size + $_;
+          vector-valid($child-validity, $k) ?? child-decode($child-data, $k) !! Nil;
+        };
+        @elements;
+      }
+    }
+    # unions are stored as a struct whose first child is a (uint8) tag vector
+    # selecting which of the other children (the members) holds the value of
+    # each row.  The value is returned without the name of the member.
+    when DUCKDB_TYPE_UNION {
+      my $tag-vec = duckdb_struct_vector_get_child($vec, 0);
+      my $tag-data = duckdb_vector_get_data($tag-vec);
+      my $tag-validity = duckdb_vector_get_validity($tag-vec);
+      my @members = (^duckdb_union_type_member_count($logical-type)).map: {
+        my $member-vec = duckdb_struct_vector_get_child($vec, $_ + 1);
+        %(
+          :data(duckdb_vector_get_data($member-vec)),
+          :validity(duckdb_vector_get_validity($member-vec)),
+          :decode(self!chunk-decoder($member-vec, $label)),
+        )
+      };
+      -> $, $i {
+        if vector-valid($tag-validity, $i) {
+          my %member = @members[ at(uint8)($tag-data, $i) ];
+          vector-valid(%member<validity>, $i) ?? %member<decode>(%member<data>, $i) !! Nil;
+        } else {
+          Nil
+        }
       }
     }
     # structs have one child vector per field; row $i of the struct is
@@ -453,6 +534,18 @@ LIST columns are returned as arrays of the decoded elements, and STRUCT columns
 as hashes of their fields.  These are decoded recursively, so nested types
 (e.g. a list of structs) are supported, as are other types (including
 GEOMETRY) inside a list or struct.
+
+Other types are returned as follows:
+
+=item UUID: a C<Str> in the canonical 8-4-4-4-12 form.
+=item TIME_TZ: a C<DateTime> on 1970-01-01, with the stored UTC offset as its C<timezone>.
+=item INTERVAL: an C<Interval> with C<months>, C<days> and C<micros> (and C<seconds>).  These are kept apart since months and days vary in length.
+=item BIGNUM: an C<Int>.
+=item BIT: a C<Str> of C<0>s and C<1>s.
+=item ENUM: the C<Str> value.
+=item MAP: an array of C<Pair>s, which keeps the order and the types of the keys.
+=item ARRAY (fixed size): an array of the decoded elements, like a LIST.
+=item UNION: the value of the member that is set (the name of the member is not returned).
 
 Unsupported types are currently treated as C<Nil>.  These will emit a warning, if diagnostics
 are enabled.  Set C<DUCKIE_DEBUG> to send warnings to stderr (or use C<Log::Async> and add

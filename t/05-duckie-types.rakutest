@@ -87,4 +87,146 @@ is $time[0].hh-mm-ss, '00:00:00', 'min time';
 is $time[1] - $time[0], 24 * 60 * 60, 'max time';
 ok !defined($time[2]), 'nil time';
 
+my $time_tz = $all-res.column-data('time_tz');
+is $time_tz[0].hh-mm-ss, '00:00:00', 'min time_tz';
+is $time_tz[0].timezone, 15 * 3600 + 59 * 60 + 59, 'min time_tz offset';
+is $time_tz[1].timezone, -(15 * 3600 + 59 * 60 + 59), 'max time_tz offset';
+is $time_tz[1] - $time_tz[0], 24 * 60 * 60 + 2 * 57599, 'max time_tz is 24h later, in instants';
+ok !defined($time_tz[2]), 'nil time_tz';
+is $all-res.column-type('time_tz'), 'TIME_TZ', 'time_tz type';
+with $db.query("select '14:30:15.5+02:00'::timetz as t").column-data(0)[0] {
+  is .hour, 14, 'time_tz hour';
+  is .minute, 30, 'time_tz minute';
+  is .second, 15.5, 'time_tz second';
+  is .timezone, 7200, 'time_tz timezone';
+}
+
+my $interval = $all-res.column-data('interval');
+is $all-res.column-type('interval'), 'INTERVAL', 'interval type';
+is-deeply $interval[0].&{ .months, .days, .micros }, (0, 0, 0), 'min interval';
+is-deeply $interval[1].&{ .months, .days, .micros }, (999, 999, 999_999_999), 'max interval';
+ok !defined($interval[2]), 'nil interval';
+with $db.query("select interval '1 year 2 months 3 days 4 hours 5.5 seconds' as i, interval '-3 days' as n") {
+  my $i = .column-data(0)[0];
+  is-deeply ($i.months, $i.days, $i.micros), (14, 3, 14_405_500_000), 'interval components';
+  is $i.seconds, 14405.5, 'interval seconds';
+  is .column-data(1)[0].days, -3, 'negative interval';
+}
+
+# the name of this column and of its SQL type depend on the version of libduckdb (varint or bignum)
+my $bignum-col = $all-res.column-names.first({ $_ eq 'bignum' | 'varint' });
+my $bignum-type = $db.query("select typeof($bignum-col) from test_all_types() limit 1").column-data(0)[0];
+my $bignum = $all-res.column-data($bignum-col);
+my $bignum-str = $db.query("select {$bignum-col}::varchar from test_all_types()").column-data(0);
+is $all-res.column-type($bignum-col), 'BIGNUM', 'bignum type';
+ok $bignum[0] ~~ Int, 'bignum is an Int';
+ok $bignum[0] < 0 && $bignum[0].chars == 310, 'min bignum is a big negative number';
+is $bignum[0], $bignum-str[0].Int, 'min bignum matches varchar cast';
+is $bignum[1], $bignum-str[1].Int, 'max bignum matches varchar cast';
+ok !defined($bignum[2]), 'nil bignum';
+with $db.query("select 123456789012345678901234567890::$bignum-type as p, (-255)::$bignum-type as n, 0::$bignum-type as z, 256::$bignum-type as b, (-256)::$bignum-type as nb") {
+  is-deeply .columns.map(*[0]).list, (123456789012345678901234567890, -255, 0, 256, -256), 'bignum values';
+}
+
+is-deeply $all-res.column-data('bit'), ['0010001001011100010101011010111', '10101', Nil], 'bit';
+is $all-res.column-type('bit'), 'BIT', 'bit type';
+with $db.query("select '1'::bit as a, '10101'::bit as b, '11111111'::bit as c, '000000001'::bit as d") {
+  is-deeply .columns.map(*[0]).list, ('1', '10101', '11111111', '000000001'), 'bit padding boundaries';
+}
+
+is-deeply $all-res.column-data('small_enum'), ['DUCK_DUCK_ENUM', 'GOOSE', Nil], 'small_enum (uint8 index)';
+is-deeply $all-res.column-data('medium_enum'), ['enum_0', 'enum_299', Nil], 'medium_enum (uint16 index)';
+is-deeply $all-res.column-data('large_enum'), ['enum_0', 'enum_69999', Nil], 'large_enum (uint32 index)';
+is $all-res.column-type('small_enum'), 'ENUM', 'enum type';
+$db.query("create type mood as enum ('sad', 'ok', 'happy')");
+with $db.query(Q:to/SQL/) {
+  select 'happy'::mood as a, 'sad'::mood as b, NULL::mood as c,
+    ['ok'::mood, 'sad'::mood] as l, {'m': 'ok'::mood} as s
+  SQL
+  is .column-data('a')[0], 'happy', 'user enum';
+  is .column-data('b')[0], 'sad', 'user enum';
+  ok !defined(.column-data('c')[0]), 'nil user enum';
+  is-deeply .column-data('l')[0], ['ok', 'sad'], 'enum in a list';
+  is-deeply .column-data('s')[0], %(:m<ok>), 'enum in a struct';
+}
+
+my $map = $all-res.column-data('map');
+is $all-res.column-type('map'), 'MAP', 'map type';
+is-deeply $map[0], [], 'empty map';
+is-deeply $map[1], [ :key1<🦆🦆🦆🦆🦆🦆>, :key2<goose> ], 'map';
+ok !defined($map[2]), 'nil map';
+with $db.query(Q:to/SQL/) {
+  select map {1: 'a', 2: 'b'} as ints, map {'x': [1,2], 'y': NULL} as lists,
+    [map {'k': 1}] as in_list, {'m': map {'k': 2.5}} as in_struct
+  SQL
+  is-deeply .column-data('ints')[0], [ 1 => 'a', 2 => 'b' ], 'map with integer keys, order kept';
+  my $lists = .column-data('lists')[0];
+  is $lists[0].key, 'x', 'map key';
+  is-deeply $lists[0].value, [1, 2], 'map value is a list';
+  ok !defined($lists[1].value), 'map with a null value';
+  is-deeply .column-data('in_list')[0], [ [ :k(1) ], ], 'map in a list';
+  is-deeply .column-data('in_struct')[0], %( :m[ :k(2.5) ] ), 'map in a struct';
+}
+
+is $all-res.column-type('fixed_int_array'), 'ARRAY', 'array type';
+is-deeply $all-res.column-data('fixed_int_array'), [ [Nil, 2, 3], [4, 5, 6], Nil ], 'fixed_int_array';
+is-deeply $all-res.column-data('fixed_varchar_array'), [ ['a', Nil, 'c'], ['d', 'e', 'f'], Nil ], 'fixed_varchar_array';
+is-deeply $all-res.column-data('fixed_nested_int_array'), [
+  [ [Nil, 2, 3], Nil, [Nil, 2, 3] ],
+  [ [4, 5, 6], [Nil, 2, 3], [4, 5, 6] ],
+  Nil
+], 'fixed_nested_int_array';
+is-deeply $all-res.column-data('list_of_fixed_int_array'), [
+  [ [Nil, 2, 3], [4, 5, 6], [Nil, 2, 3] ],
+  [ [4, 5, 6], [Nil, 2, 3], [4, 5, 6] ],
+  Nil
+], 'list_of_fixed_int_array';
+is-deeply $all-res.column-data('fixed_array_of_int_list')[1],
+  [ [42, 999, Nil, Nil, -42], [], [42, 999, Nil, Nil, -42] ], 'fixed_array_of_int_list';
+is-deeply $all-res.column-data('struct_of_fixed_array')[0],
+  %( :a[Nil, 2, 3], :b['a', Nil, 'c'] ), 'struct_of_fixed_array';
+my $fixed-structs = $all-res.column-data('fixed_struct_array')[1];
+is $fixed-structs.elems, 3, 'fixed_struct_array has 3 elements';
+is $fixed-structs[0]<a>, 42, 'struct in a fixed array';
+ok !defined($fixed-structs[1]<a>), 'null struct field in a fixed array';
+with $db.query('select [1, 2, 3]::int[3] as a, [[1, 2], [3, 4]]::int[2][2] as b') {
+  is-deeply .column-data('a')[0], [1, 2, 3], 'fixed array';
+  is-deeply .column-data('b')[0], [ [1, 2], [3, 4] ], 'nested fixed array';
+}
+
+is $all-res.column-type('union'), 'UNION', 'union type';
+is-deeply $all-res.column-data('union'), ['Frank', 5, Nil], 'union members of different types';
+with $db.query(Q:to/SQL/) {
+  select 42::union(num int, str varchar) as a, 'hi'::union(num int, str varchar) as b,
+    NULL::union(num int, str varchar) as c,
+    [1::union(num int, str varchar), 'x'::union(num int, str varchar)] as l,
+    {'u': 7::union(num int, str varchar)} as s
+  SQL
+  is .column-data('a')[0], 42, 'union holding an int';
+  is .column-data('b')[0], 'hi', 'union holding a string';
+  ok !defined(.column-data('c')[0]), 'nil union';
+  is-deeply .column-data('l')[0], [1, 'x'], 'unions in a list';
+  is-deeply .column-data('s')[0], %( :u(7) ), 'union in a struct';
+}
+
+is-deeply $all-res.column-data('uuid'), [
+  '00000000-0000-0000-0000-000000000000',
+  'ffffffff-ffff-ffff-ffff-ffffffffffff',
+  Nil
+], 'uuid';
+is $all-res.column-type('uuid'), 'UUID', 'uuid type';
+
+with $db.query("select uuid 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' as u") {
+  is .column-data(0)[0], 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'uuid round trip';
+}
+
+# libduckdb's deprecated column API fails to translate a result with a UUID column,
+# and then returns NULL for every column, so the other columns must still be readable.
+with $db.query("select 'hi' as s, 42 as i, uuid 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' as u, 1.5 as d") {
+  is .column-data('s')[0], 'hi', 'varchar next to a uuid column';
+  is .column-data('i')[0], 42, 'integer next to a uuid column';
+  is .column-data('d')[0], 1.5, 'decimal next to a uuid column';
+  is .column-data('u')[0], 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'uuid next to other columns';
+}
+
 done-testing;

@@ -595,6 +595,16 @@ sub duckdb_vector_get_column_type(DuckVector $vec) returns LogicalType is native
 #| The resulting vector is valid as long as the parent vector is valid.
 sub duckdb_list_vector_get_child(DuckVector $vec) returns DuckVector is native(libduckdb) is export { * }
 
+#| DUCKDB_API idx_t duckdb_union_type_member_count(duckdb_logical_type type);
+sub duckdb_union_type_member_count(LogicalType $type) returns uint64 is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_vector duckdb_array_vector_get_child(duckdb_vector vector);
+#| The resulting vector is valid as long as the parent vector is valid.
+sub duckdb_array_vector_get_child(DuckVector $vec) returns DuckVector is native(libduckdb) is export { * }
+
+#| DUCKDB_API idx_t duckdb_array_type_array_size(duckdb_logical_type type);
+sub duckdb_array_type_array_size(LogicalType $type) returns uint64 is native(libduckdb) is export { * }
+
 #| DUCKDB_API duckdb_vector duckdb_struct_vector_get_child(duckdb_vector vector, idx_t index);
 #| The resulting vector is valid as long as the parent vector is valid.
 sub duckdb_struct_vector_get_child(DuckVector $vec, uint64 $index) returns DuckVector is native(libduckdb) is export { * }
@@ -608,6 +618,17 @@ sub duckdb_struct_type_child_count(LogicalType $type) returns uint64 is native(l
 #| DUCKDB_API char *duckdb_struct_type_child_name(duckdb_logical_type type, idx_t index);
 #| The result must be freed with C<duckdb_free>.
 sub duckdb_struct_type_child_name(LogicalType $type, uint64 $index) returns Pointer is native(libduckdb) is export { * }
+
+#| DUCKDB_API duckdb_type duckdb_enum_internal_type(duckdb_logical_type type);
+#| The type (UTINYINT, USMALLINT or UINTEGER) of the indexes into the dictionary.
+sub duckdb_enum_internal_type(LogicalType $type) returns uint32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API uint32_t duckdb_enum_dictionary_size(duckdb_logical_type type);
+sub duckdb_enum_dictionary_size(LogicalType $type) returns uint32 is native(libduckdb) is export { * }
+
+#| DUCKDB_API char *duckdb_enum_dictionary_value(duckdb_logical_type type, idx_t index);
+#| The result must be freed with C<duckdb_free>.
+sub duckdb_enum_dictionary_value(LogicalType $type, uint64 $index) returns Pointer is native(libduckdb) is export { * }
 
 #| DUCKDB_API void duckdb_free(void *ptr);
 sub duckdb_free(Pointer $ptr) is native(libduckdb) is export { * }
