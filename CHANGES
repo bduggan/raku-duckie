@@ -1,3 +1,7 @@
+0.0.16 2026-11-19
+  - allow multiple threads even with udfs
+  - update docs
+
 0.0.15 2026-11-16
   - support union, array, bignum, bit, timetz, interval
   - support uuid
