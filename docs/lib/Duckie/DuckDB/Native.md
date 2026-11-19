@@ -73,6 +73,14 @@ method value() returns Mu
 
 Returns the value of the hugeint
 
+### method uuid
+
+```raku
+method uuid() returns Mu
+```
+
+UUIDs share the hugeint layout, with the top bit flipped (so that `order by uuid` matches `order by uuid::varchar`).  Returns the canonical 8-4-4-4-12 hexadecimal form.
+
 class DuckDB::Native::DuckBlob
 ------------------------------
 
@@ -118,6 +126,53 @@ method DateTime() returns Mu
 ```
 
 cast to a raku DateTime
+
+class DuckDB::Native::DuckTimeTZ
+--------------------------------
+
+`duckdb_time_tz` : Time with time zone: 40 bits of microseconds since 00:00:00 (high bits), and 24 bits of UTC offset (low bits), stored as 15:59:59 minus the offset in seconds.
+
+### method offset
+
+```raku
+method offset() returns Mu
+```
+
+The UTC offset in seconds
+
+### method DateTime
+
+```raku
+method DateTime() returns Mu
+```
+
+cast to a raku DateTime (on 1970-01-01, in the stored offset)
+
+class DuckDB::Native::Interval
+------------------------------
+
+An interval, as a Raku value.  Months and days vary in length, so they cannot be combined into a fixed duration; the components are kept separate.
+
+### method seconds
+
+```raku
+method seconds() returns Mu
+```
+
+The sub-day part, in seconds
+
+class DuckDB::Native::DuckInterval
+----------------------------------
+
+`duckdb_interval` : Intervals are stored as months, days, and microseconds.
+
+### method Interval
+
+```raku
+method Interval() returns Mu
+```
+
+copy to a raku Interval (the struct itself lives in vector memory)
 
 class DuckDB::Native::DuckTimestamp
 -----------------------------------
@@ -947,6 +1002,36 @@ sub duckdb_list_vector_get_child(
 
 DUCKDB_API duckdb_vector duckdb_list_vector_get_child(duckdb_vector vector); The resulting vector is valid as long as the parent vector is valid.
 
+### sub duckdb_union_type_member_count
+
+```raku
+sub duckdb_union_type_member_count(
+    DuckDB::Native::LogicalType $type
+) returns uint64
+```
+
+DUCKDB_API idx_t duckdb_union_type_member_count(duckdb_logical_type type);
+
+### sub duckdb_array_vector_get_child
+
+```raku
+sub duckdb_array_vector_get_child(
+    DuckDB::Native::DuckVector $vec
+) returns DuckDB::Native::DuckVector
+```
+
+DUCKDB_API duckdb_vector duckdb_array_vector_get_child(duckdb_vector vector); The resulting vector is valid as long as the parent vector is valid.
+
+### sub duckdb_array_type_array_size
+
+```raku
+sub duckdb_array_type_array_size(
+    DuckDB::Native::LogicalType $type
+) returns uint64
+```
+
+DUCKDB_API idx_t duckdb_array_type_array_size(duckdb_logical_type type);
+
 ### sub duckdb_struct_vector_get_child
 
 ```raku
@@ -988,6 +1073,37 @@ sub duckdb_struct_type_child_name(
 ```
 
 DUCKDB_API char *duckdb_struct_type_child_name(duckdb_logical_type type, idx_t index); The result must be freed with C<duckdb_free>.
+
+### sub duckdb_enum_internal_type
+
+```raku
+sub duckdb_enum_internal_type(
+    DuckDB::Native::LogicalType $type
+) returns uint32
+```
+
+DUCKDB_API duckdb_type duckdb_enum_internal_type(duckdb_logical_type type); The type (UTINYINT, USMALLINT or UINTEGER) of the indexes into the dictionary.
+
+### sub duckdb_enum_dictionary_size
+
+```raku
+sub duckdb_enum_dictionary_size(
+    DuckDB::Native::LogicalType $type
+) returns uint32
+```
+
+DUCKDB_API uint32_t duckdb_enum_dictionary_size(duckdb_logical_type type);
+
+### sub duckdb_enum_dictionary_value
+
+```raku
+sub duckdb_enum_dictionary_value(
+    DuckDB::Native::LogicalType $type,
+    uint64 $index
+) returns NativeCall::Types::Pointer
+```
+
+DUCKDB_API char *duckdb_enum_dictionary_value(duckdb_logical_type type, idx_t index); The result must be freed with C<duckdb_free>.
 
 ### sub duckdb_free
 

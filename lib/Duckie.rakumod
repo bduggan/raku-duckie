@@ -418,7 +418,7 @@ has $.logger = logger;
 has DuckDB::Native::Database $.dbh .= new;
 has DuckDB::Native::Connection $.conn .= new;
 has Str $.file = ':memory:';
-has Bool $!single-threaded = False;
+has Bool $.single-threaded = False;
 
 submethod TWEAK {
   duckdb_open($!file, $!dbh) == +DUCKDB_SUCCESS or fail "Failed to open database $!file";
@@ -674,13 +674,13 @@ C<@params> declares the SQL parameter types accepted at the call site.
 C<&function> is called once per query execution with the SQL arguments
 (as strings) and must return an iterable of arrays, one per output row.
 
-B<Thread safety note>: registering any table or scalar function causes the
-connection to switch to single-threaded mode (C<SET threads=1>).  This is
-necessary because MoarVM NativeCall callbacks are bound to the OS thread
+B<Thread safety note>: MoarVM NativeCall callbacks are bound to the OS thread
 that created them; if DuckDB's internal worker threads invoke a callback,
 MoarVM panics with "native callback ran on thread unknown to MoarVM".
-Single-threaded mode ensures callbacks are always invoked on the same thread
-that issued the query.
+Registering a function does not change DuckDB's thread count.  To make sure
+callbacks are always invoked on the thread that issued the query, create the
+connection with C<Duckie.new(:single-threaded)> (which runs C<SET threads=1>
+when a function is registered), or run C<SET threads=1> yourself.
 
 =begin code
 
@@ -700,10 +700,9 @@ $db.query('SELECT * FROM squares(4)').rows;
 # DuckDB's worker threads are not MoarVM threads, so any UDF callback
 # invoked from a worker thread causes "native callback ran on thread unknown
 # to MoarVM".  Limiting DuckDB to one thread keeps all callbacks on the
-# thread that issued the query.
+# thread that issued the query.  Opt-in via :single-threaded.
 method !ensure-single-threaded {
-  return if $!single-threaded;
-  $!single-threaded = True;
+  return unless $!single-threaded;
   my $r = DuckDB::Native::Result.new;
   duckdb_query($!conn, "SET threads=1", $r);
 }
@@ -763,9 +762,9 @@ once per input row.
 C<&function> receives one argument per declared parameter and must return
 a single value of the declared return type.
 
-B<Thread safety note>: see L<register-table-function> — registering any
-UDF switches the connection to single-threaded mode to prevent MoarVM
-panics from DuckDB worker threads invoking NativeCall callbacks.
+B<Thread safety note>: see L<register-table-function> — use
+C<Duckie.new(:single-threaded)> to prevent MoarVM panics from DuckDB
+worker threads invoking NativeCall callbacks.
 
 =begin code
 

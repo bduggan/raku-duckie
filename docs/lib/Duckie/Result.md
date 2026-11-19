@@ -89,14 +89,6 @@ multi method column-data(
 
 Returns the data for the specified column number
 
-### method use-chunks
-
-```raku
-method use-chunks() returns Bool
-```
-
-The deprecated column API (duckdb_column_data) has no data for nested types (LIST, STRUCT) or some other types (e.g. GEOMETRY), and once a result has been read through the chunk API the deprecated API no longer works (and vice versa).  So results that contain any of those types are read entirely through the chunk API.
-
 ### method chunk-column-data
 
 ```raku
@@ -117,6 +109,26 @@ sub string-t-at(
 ```
 
 Read element $i of a vector stored as duckdb_string_t (16 bytes/element): bytes 0-3  : uint32 length if len ≤ 12: bytes 4-15 contain the inlined data if len > 12: bytes 8-15 contain a pointer to the data
+
+### sub bignum-value
+
+```raku
+sub bignum-value(
+    Buf $blob
+) returns Int
+```
+
+Decode a BIGNUM blob: a 3 byte header followed by the big-endian bytes of the absolute value.  The top bit of the header is set for positive numbers; for negative numbers the header and the data are bitwise inverted.
+
+### sub bit-string
+
+```raku
+sub bit-string(
+    Buf $blob
+) returns Str
+```
+
+Decode a BIT blob into a string of 0s and 1s.  The first byte is the number of padding bits (0-7), which are the first bits of the second byte.
 
 ### sub vector-valid
 
@@ -172,6 +184,26 @@ NOTES
 =====
 
 LIST columns are returned as arrays of the decoded elements, and STRUCT columns as hashes of their fields. These are decoded recursively, so nested types (e.g. a list of structs) are supported, as are other types (including GEOMETRY) inside a list or struct.
+
+Other types are returned as follows:
+
+  * UUID: a `Str` in the canonical 8-4-4-4-12 form.
+
+  * TIME_TZ: a `DateTime` on 1970-01-01, with the stored UTC offset as its `timezone`.
+
+  * INTERVAL: an `Interval` with `months`, `days` and `micros` (and `seconds`). These are kept apart since months and days vary in length.
+
+  * BIGNUM: an `Int`.
+
+  * BIT: a `Str` of `0`s and `1`s.
+
+  * ENUM: the `Str` value.
+
+  * MAP: an array of `Pair`s, which keeps the order and the types of the keys.
+
+  * ARRAY (fixed size): an array of the decoded elements, like a LIST.
+
+  * UNION: the value of the member that is set (the name of the member is not returned).
 
 Unsupported types are currently treated as `Nil`. These will emit a warning, if diagnostics are enabled. Set `DUCKIE_DEBUG` to send warnings to stderr (or use `Log::Async` and add a tap).
 
