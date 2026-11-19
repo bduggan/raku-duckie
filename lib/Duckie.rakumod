@@ -762,7 +762,7 @@ once per input row.
 C<&function> receives one argument per declared parameter and must return
 a single value of the declared return type.
 
-B<Thread safety note>: see L<register-table-function> — use
+B<Thread safety note>: see B<register-table-function> — use
 C<Duckie.new(:single-threaded)> to prevent MoarVM panics from DuckDB
 worker threads invoking NativeCall callbacks.
 

@@ -199,7 +199,7 @@ Register a user-defined scalar function that calls a Raku subroutine once per in
 
 `&function` receives one argument per declared parameter and must return a single value of the declared return type.
 
-**Thread safety note**: see [register-table-function](register-table-function) — use `Duckie.new(:single-threaded)` to prevent MoarVM panics from DuckDB worker threads invoking NativeCall callbacks.
+**Thread safety note**: see **register-table-function** — use `Duckie.new(:single-threaded)` to prevent MoarVM panics from DuckDB worker threads invoking NativeCall callbacks.
 
     $db.register-scalar-function('raku-upper',
       params   => ['VARCHAR'],
