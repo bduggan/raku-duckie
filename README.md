@@ -176,7 +176,7 @@ Register a user-defined table function that calls a Raku subroutine.
 
 `&function` is called once per query execution with the SQL arguments (as strings) and must return an iterable of arrays, one per output row.
 
-**Thread safety note**: MoarVM NativeCall callbacks are bound to the OS thread that created them; if DuckDB's internal worker threads invoke a callback, MoarVM panics with "native callback ran on thread unknown to MoarVM". Registering a function does not change DuckDB's thread count. To make sure callbacks are always invoked on the thread that issued the query, create the connection with `Duckie.new(:single-threaded)` (which runs `SET threads=1` when a function is registered), or run `SET threads=1` yourself.
+**Thread safety note**: MoarVM NativeCall callbacks are bound to the OS thread that created them; if DuckDB's internal worker threads invoke a callback, MoarVM panics with "native callback ran on thread unknown to MoarVM". If your query uses UDFs or table functions, you will want to run things with one thread. Duckie will automatically set threads to 1 if it sees the name of a UDF or table function in a query. To disable this behavior, use `Duckie.new(:!single-threaded)`.
 
     $db.register-table-function('squares',
       columns  => ['n' => 'INTEGER', 'sq' => 'INTEGER'],
@@ -199,7 +199,7 @@ Register a user-defined scalar function that calls a Raku subroutine once per in
 
 `&function` receives one argument per declared parameter and must return a single value of the declared return type.
 
-**Thread safety note**: see **register-table-function** — use `Duckie.new(:single-threaded)` to prevent MoarVM panics from DuckDB worker threads invoking NativeCall callbacks.
+**Thread safety note**: see **register-table-function** — queries that mention the function's name are run with one thread unless `Duckie.new(:!single-threaded)` was used.
 
     $db.register-scalar-function('raku-upper',
       params   => ['VARCHAR'],

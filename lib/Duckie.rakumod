@@ -244,6 +244,7 @@ sub _sf-func-cb(DuckDB::Native::FunctionInfo $info,
 
 class Duckie::PreparedStatement {
   has DuckDB::Native::PreparedStatement $.stmt .= new;
+  has &.runner = -> &code { code() };
 
   submethod DESTROY { duckdb_destroy_prepare($!stmt) }
 
@@ -262,7 +263,8 @@ class Duckie::PreparedStatement {
 
   multi method execute(--> Duckie::Result) {
     my $res = DuckDB::Native::Result.new;
-    unless duckdb_execute_prepared($!stmt, $res) == DUCKDB_SUCCESS {
+    my $rc = &!runner({ duckdb_execute_prepared($!stmt, $res) });
+    unless $rc == DUCKDB_SUCCESS {
       fail duckdb_result_error($res);
     }
     Duckie::Result.new(:$res);
@@ -418,7 +420,8 @@ has $.logger = logger;
 has DuckDB::Native::Database $.dbh .= new;
 has DuckDB::Native::Connection $.conn .= new;
 has Str $.file = ':memory:';
-has Bool $.single-threaded = False;
+has Bool $.single-threaded;  # Nil: auto, True: always 1 thread, False: leave alone
+has Str @!function-names;     # names of registered UDFs and table functions
 
 submethod TWEAK {
   duckdb_open($!file, $!dbh) == +DUCKDB_SUCCESS or fail "Failed to open database $!file";
@@ -457,7 +460,8 @@ multi method query(Str $sql --> Duckie::Result) {
   trace "Running query: $sql";
   fail "Database connection is closed" unless $!conn;
   my $res = DuckDB::Native::Result.new;
-  unless (duckdb_query($!conn, $sql, $res) == DUCKDB_SUCCESS) {
+  my $rc = self!run-for($sql, { duckdb_query($!conn, $sql, $res) });
+  unless $rc == DUCKDB_SUCCESS {
      fail duckdb_result_error($res);
   }
   return Duckie::Result.new(:$res);
@@ -504,7 +508,9 @@ $stmt2.execute(x => 1, y => 2).rows;
 method prepare(Str $sql --> Duckie::PreparedStatement) {
   trace "Preparing query: $sql";
   fail "Database connection is closed" unless $!conn;
-  my $ps = Duckie::PreparedStatement.new;
+  my $ps = self!uses-functions($sql)
+    ?? Duckie::PreparedStatement.new(runner => -> &code { self!single-thread(&code) })
+    !! Duckie::PreparedStatement.new;
   unless duckdb_prepare($!conn, $sql, $ps.stmt) == DUCKDB_SUCCESS {
     fail duckdb_prepare_error($ps.stmt);
   }
@@ -567,7 +573,8 @@ multi method execute(Str $sql --> Int) {
   fail "Database connection is closed" unless $!conn;
   my $res = DuckDB::Native::Result.new;
   LEAVE { duckdb_destroy_result($_) with $res }
-  unless duckdb_query($!conn, $sql, $res) == DUCKDB_SUCCESS {
+  my $rc = self!run-for($sql, { duckdb_query($!conn, $sql, $res) });
+  unless $rc == DUCKDB_SUCCESS {
     fail duckdb_result_error($res);
   }
   duckdb_rows_changed($res);
@@ -677,10 +684,10 @@ C<&function> is called once per query execution with the SQL arguments
 B<Thread safety note>: MoarVM NativeCall callbacks are bound to the OS thread
 that created them; if DuckDB's internal worker threads invoke a callback,
 MoarVM panics with "native callback ran on thread unknown to MoarVM".
-Registering a function does not change DuckDB's thread count.  To make sure
-callbacks are always invoked on the thread that issued the query, create the
-connection with C<Duckie.new(:single-threaded)> (which runs C<SET threads=1>
-when a function is registered), or run C<SET threads=1> yourself.
+If your query uses UDFs or table functions, you will want to run things
+with one thread.  Duckie will automatically set threads to 1 if it
+sees the name of a UDF or table function in a query.  To disable this
+behavior, use C<Duckie.new(:!single-threaded)>.
 
 =begin code
 
@@ -700,15 +707,54 @@ $db.query('SELECT * FROM squares(4)').rows;
 # DuckDB's worker threads are not MoarVM threads, so any UDF callback
 # invoked from a worker thread causes "native callback ran on thread unknown
 # to MoarVM".  Limiting DuckDB to one thread keeps all callbacks on the
-# thread that issued the query.  Opt-in via :single-threaded.
+# thread that issued the query.
+#
+# $.single-threaded is tri-state:
+#   Nil   (default) -- auto: queries mentioning a registered function name
+#                      run with threads=1, and the previous setting is restored.
+#   True            -- SET threads=1 once a function is registered.
+#   False           -- never change the thread count.
 method !ensure-single-threaded {
-  return unless $!single-threaded;
+  return unless $!single-threaded.defined && $!single-threaded;
   my $r = DuckDB::Native::Result.new;
   duckdb_query($!conn, "SET threads=1", $r);
+  duckdb_destroy_result($r);
+}
+
+method !uses-functions(Str $sql --> Bool) {
+  return False if $!single-threaded.defined;
+  so @!function-names.first: -> $name { $sql ~~ m:i/ <!after \w> $name <!before \w> / }
+}
+
+method !run-for(Str $sql, &code) {
+  self!uses-functions($sql) ?? self!single-thread(&code) !! code();
+}
+
+method !current-threads(--> Int) {
+  my $r = DuckDB::Native::Result.new;
+  LEAVE duckdb_destroy_result($r);
+  duckdb_query($!conn, "select current_setting('threads')", $r) == DUCKDB_SUCCESS
+    or return Int;
+  duckdb_value_uint64($r, 0, 0).Int;
+}
+
+method !single-thread(&code) {
+  my $prev = self!current-threads;
+  return code() if !$prev.defined || $prev == 1;
+  my $r = DuckDB::Native::Result.new;
+  duckdb_query($!conn, "SET threads=1", $r);
+  duckdb_destroy_result($r);
+  LEAVE {
+    my $r = DuckDB::Native::Result.new;
+    duckdb_query($!conn, "SET threads=$prev", $r);
+    duckdb_destroy_result($r);
+  }
+  code();
 }
 
 method register-table-function(Str $name, :@columns!, :@params = [], :&function!) {
   self!ensure-single-threaded;
+  @!function-names.push: $name;
   my @cols = @columns.map: {
       $_ ~~ Pair ?? [$_.key, $_.value] !! $_
   };
@@ -762,9 +808,9 @@ once per input row.
 C<&function> receives one argument per declared parameter and must return
 a single value of the declared return type.
 
-B<Thread safety note>: see B<register-table-function> — use
-C<Duckie.new(:single-threaded)> to prevent MoarVM panics from DuckDB
-worker threads invoking NativeCall callbacks.
+B<Thread safety note>: see B<register-table-function> — queries that
+mention the function's name are run with one thread unless
+C<Duckie.new(:!single-threaded)> was used.
 
 =begin code
 
@@ -785,6 +831,7 @@ method register-scalar-function(Str $name, :@params!, :$returns!, :&function!) {
   die "DuckDB scalar UDFs require library version >= 1.1.0 (installed: $ver)"
     if $ver before v1.1.0;
   self!ensure-single-threaded;
+  @!function-names.push: $name;
   @_sf_registry.push: _ScalarFuncDef.new(
       :$name,
       param-types => @params,
